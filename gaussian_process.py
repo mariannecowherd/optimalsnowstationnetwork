@@ -37,6 +37,11 @@ constant_maps = xr.open_mfdataset(filenames_invar, combine='by_coords')
 # create statistics: mean, extreme, trends
 datamean = data.to_array().mean(dim='time').to_dataset(dim='variable')
 
+# add lat and lon as predictors
+londata, latdata = np.meshgrid(constant_maps.lon, constant_maps.lat)
+constant_maps['latdata'] = (('lat', 'lon'), latdata)
+constant_maps['londata'] = (('lat', 'lon'), londata)
+
 # merge constant maps and variables
 landmask = (constant_maps['lsm'].squeeze() > 0.8).load() # land is 1, ocean is 0
 landlat, landlon = np.where(landmask)
@@ -44,6 +49,7 @@ landlat, landlon = np.where(landmask)
 data = datamean.merge(constant_maps).to_array()
 data = data.isel(lon=xr.DataArray(landlon, dims='landpoints'), 
                  lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
+#data = data.sel(variable=['latdata','londata','skt']) #DEBUG
 
 # normalise data
 datamean = data.mean(dim=('landpoints'))
@@ -67,6 +73,7 @@ for lat, lon in zip(stations_lat,stations_lon):
     station_grid_lat.append(find_closest(data_lat, lat))
     station_grid_lon.append(find_closest(data_lon, lon))
 
+# TODO clean up below
 lat_landpoints = data.lat.values
 lon_landpoints = data.lon.values
 selected_landpoints = []
@@ -114,4 +121,5 @@ fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10,5))
 unc_map.plot(ax=axes[1])
 axes[0].scatter(station_grid_lon, station_grid_lat, marker='x', s=5, c='indianred')
 axes[1].scatter(station_grid_lon, station_grid_lat, marker='x', s=5, c='indianred')
-plt.show()
+plt.savefig('kriging_onlylatlon.png')
+#plt.show()
