@@ -23,16 +23,22 @@ years = list(np.arange(1979,2020))
 # define paths
 era5path_variant = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_1m/processed/regrid/'
 era5path_invariant = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/'
+era5path_extremes = '/net/so4/landclim/bverena/large_files/'
 invarnames = ['lsm','z','slor','cvl','cvh', 'tvl', 'tvh']
 varnames = ['skt','tp','swvl1','swvl2','swvl3','swvl4','e','ro','sshf','slhf','ssr','str']
 
 # define files
 filenames_var = [f'{era5path_variant}era5_deterministic_recent.{varname}.025deg.1m.{year}.nc' for year in years for varname in varnames]
 filenames_invar = [f'{era5path_invariant}era5_deterministic_recent.{varname}.025deg.time-invariant.nc' for varname in invarnames]
+filenames_extremes = [f'{era5path_extremes}era5_deterministic_recent.temp.025deg.1m.max.nc', 
+                      f'{era5path_extremes}era5_deterministic_recent.temp.025deg.1m.min.nc',
+                      f'{era5path_extremes}era5_deterministic_recent.precip.025deg.1m.sum.nc']
 
 # open files
 data = xr.open_mfdataset(filenames_var, combine='by_coords')
 constant_maps = xr.open_mfdataset(filenames_invar, combine='by_coords')
+import IPython; IPython.embed()
+data_extremes = xr.open_mfdataset(filenames_extremes, combine='nested')
 
 # create statistics: mean, extreme, trends
 datamean = data.to_array().mean(dim='time').to_dataset(dim='variable')
@@ -41,6 +47,7 @@ datamean = data.to_array().mean(dim='time').to_dataset(dim='variable')
 landmask = (constant_maps['lsm'].squeeze() > 0.8).load() # land is 1, ocean is 0
 landlat, landlon = np.where(landmask)
 
+import IPython; IPython.embed()
 data = datamean.merge(constant_maps).to_array()
 data = data.isel(lon=xr.DataArray(landlon, dims='landpoints'), 
                  lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
