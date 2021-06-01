@@ -21,18 +21,33 @@ years = list(np.arange(1979,2020))
 #years = [2000]
 
 # define paths
+largefilepath = '/net/so4/landclim/bverena/large_files/'
 era5path_variant = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_1m/processed/regrid/'
 era5path_invariant = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/'
+era5path_max = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_1h/processed/regrid_tmax1d/'
+era5path_min = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_1h/processed/regrid_tmin1d/'
+era5path_sum = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_1h/processed/regrid_tsum1d/'
 invarnames = ['lsm','z','slor','cvl','cvh', 'tvl', 'tvh']
 varnames = ['skt','tp','swvl1','swvl2','swvl3','swvl4','e','ro','sshf','slhf','ssr','str']
+varxnames = ['skt','t2m']
+varsnames = ['e','tp']
 
 # define files
 filenames_var = [f'{era5path_variant}era5_deterministic_recent.{varname}.025deg.1m.{year}.nc' for year in years for varname in varnames]
+filenames_max = [f'{era5path_max}era5_deterministic_recent.{varname}.025deg.1h.{year}.tmax1d.nc' for year in years for varname in varxnames]
+filenames_min = [f'{era5path_min}era5_deterministic_recent.{varname}.025deg.1h.{year}.tmin1d.nc' for year in years for varname in varxnames]
+filenames_sum = [f'{era5path_sum}era5_deterministic_recent.{varname}.025deg.1h.{year}.tsum1d.nc' for year in years for varname in varsnames]
 filenames_invar = [f'{era5path_invariant}era5_deterministic_recent.{varname}.025deg.time-invariant.nc' for varname in invarnames]
 
 # open files
 data = xr.open_mfdataset(filenames_var, combine='by_coords')
 constant_maps = xr.open_mfdataset(filenames_invar, combine='by_coords')
+#data_max = xr.open_mfdataset(filenames_max, combine='by_coords').resample(time='1m').max().drop('time_bnds')
+#data_max.to_netcdf(largefilepath + 'era5_deterministic_recent.temp.025deg.1m.max.nc')
+#data_min = xr.open_mfdataset(filenames_min, combine='by_coords').resample(time='1m').min().drop('time_bnds')
+#data_min.to_netcdf(largefilepath + 'era5_deterministic_recent.temp.025deg.1m.min.nc')
+data_sum = xr.open_mfdataset(filenames_sum, combine='by_coords').resample(time='1m').sum()
+data_sum.to_netcdf(largefilepath + 'era5_deterministic_recent.precip.025deg.1m.sum.nc')
 
 # create statistics: mean, extreme, trends
 datamean = data.to_array().mean(dim='time').to_dataset(dim='variable')
