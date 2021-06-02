@@ -51,9 +51,10 @@ points = np.array([data.sel(landpoints=selected_landpoints).lon.values, data.sel
 #points = (points - points.mean(axis=0)) / points.std(axis=0)
 
 # train GP on observed points 
-mean_prior = 0#15 + 273
-kernel = mean_prior + RBF(1.0, length_scale_bounds='fixed')
-gp = GaussianProcessRegressor(kernel=kernel)
+std_prior = 1**2 # std deviation of values
+#length_scale = # std deviation in space
+kernel = std_prior * RBF(1.0, length_scale_bounds='fixed')
+gp = GaussianProcessRegressor(kernel=kernel, normalize_y=True)
 gp.fit(points, values)
 
 # predict GP on all other points of grid
