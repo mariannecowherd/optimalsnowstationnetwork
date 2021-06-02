@@ -37,8 +37,7 @@ filenames_extremes = [f'{era5path_extremes}era5_deterministic_recent.temp.025deg
 # open files
 data = xr.open_mfdataset(filenames_var, combine='by_coords')
 constant_maps = xr.open_mfdataset(filenames_invar, combine='by_coords')
-import IPython; IPython.embed()
-data_extremes = xr.open_mfdataset(filenames_extremes, combine='nested')
+#data_extremes = xr.open_mfdataset(filenames_extremes, combine='nested') TODO
 
 # create statistics: mean, extreme, trends
 datamean = data.to_array().mean(dim='time').to_dataset(dim='variable')
@@ -47,7 +46,6 @@ datamean = data.to_array().mean(dim='time').to_dataset(dim='variable')
 landmask = (constant_maps['lsm'].squeeze() > 0.8).load() # land is 1, ocean is 0
 landlat, landlon = np.where(landmask)
 
-import IPython; IPython.embed()
 data = datamean.merge(constant_maps).to_array()
 data = data.isel(lon=xr.DataArray(landlon, dims='landpoints'), 
                  lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
