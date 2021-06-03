@@ -53,6 +53,8 @@ for lat, lon in zip(station_grid_lat,station_grid_lon):
         pass
 selected_landpoints = np.unique(selected_landpoints) # some era5 gridpoints contain more than two stations
 values = data.sel(landpoints=selected_landpoints)
+
+# normalise values
 datamean = values.mean().values.copy()
 datastd = values.std().values.copy()
 values = (values - datamean) / datastd
