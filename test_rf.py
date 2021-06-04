@@ -10,7 +10,7 @@ import cartopy.crs as ccrs
 from sklearn.ensemble import RandomForestRegressor
 
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-case = 'latlon'
+case = 'constant'
 
 def to_latlon(data):
     lsmfile = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/era5_deterministic_recent.lsm.025deg.time-invariant.nc'
@@ -23,10 +23,10 @@ def to_latlon(data):
 
 # load data
 print('load data')
-X_train = xr.open_dataarray(f'{largefilepath}X_train.nc')
-y_train = xr.open_dataarray(f'{largefilepath}y_train.nc')
-X_test = xr.open_dataarray(f'{largefilepath}X_test.nc')
-y_test = xr.open_dataarray(f'{largefilepath}y_test.nc')
+X_train = xr.open_dataarray(f'{largefilepath}X_train_{case}.nc')
+y_train = xr.open_dataarray(f'{largefilepath}y_train_{case}.nc')
+X_test = xr.open_dataarray(f'{largefilepath}X_test_{case}.nc')
+y_test = xr.open_dataarray(f'{largefilepath}y_test_{case}.nc')
 station_grid_lat = np.load(f'{largefilepath}station_grid_lat.npy', allow_pickle=True)
 station_grid_lon = np.load(f'{largefilepath}station_grid_lon.npy', allow_pickle=True)
 
