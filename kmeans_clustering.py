@@ -86,9 +86,9 @@ for lat, lon in zip(station_grid_lat, station_grid_lon):
     station_cluster.append(clustered.sel(lat=lat, lon=lon).values.item())
 
 # plot stations
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,5))
+fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(10,3))
 clustered.plot(ax=ax[0], vmin=0, vmax=9, cmap='tab10')
 ax[0].scatter(station_grid_lon, station_grid_lat, marker='x', s=5, c='indianred')
 
 ax[1].hist(station_cluster, bins=np.arange(11))
-plt.show()
+plt.savefig(f'kmeans.png')

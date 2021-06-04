@@ -10,6 +10,7 @@ from sklearn.gaussian_process.kernels import Matern
 from sklearn.gaussian_process import GaussianProcessRegressor
 
 largefilepath = '/net/so4/landclim/bverena/large_files/'
+case = 'latlon'
 
 def to_latlon(data):
     lsmfile = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/era5_deterministic_recent.lsm.025deg.time-invariant.nc'
@@ -64,7 +65,7 @@ uncmap = uncmap * datastd
 # plot prediction and uncertainty
 print('plot')
 proj = ccrs.PlateCarree()
-fig = plt.figure(figsize=(15,10))
+fig = plt.figure(figsize=(20,3))
 ax1 = fig.add_subplot(131, projection=proj)
 ax2 = fig.add_subplot(132, projection=proj)
 ax3 = fig.add_subplot(133, projection=proj)
@@ -77,4 +78,4 @@ ax3.scatter(station_grid_lon, station_grid_lat, marker='x', s=5, c='indianred')
 ax1.coastlines()
 ax2.coastlines()
 ax3.coastlines()
-plt.show()
+plt.savefig(f'gp_{case}.png')
