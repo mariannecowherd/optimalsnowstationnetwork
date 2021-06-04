@@ -6,11 +6,17 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-# load lat lon grid
-lsmfile = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/era5_deterministic_recent.lsm.025deg.time-invariant.nc'
-lsm = xr.open_mfdataset(lsmfile, combine='by_coords')
-landlat, landlon = np.where((lsm['lsm'].squeeze() > 0.8).load()) # land is 1, ocean is 0
-datalat, datalon = lsm.lat.values, lsm.lon.values
+# load feature space X
+era5path_invariant = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/'
+invarnames = ['lsm','z','slor','cvl','cvh', 'tvl', 'tvh']
+filenames_invar = [f'{era5path_invariant}era5_deterministic_recent.{varname}.025deg.time-invariant.nc' for varname in invarnames]
+constant = xr.open_mfdataset(filenames_invar, combine='by_coords')
+landlat, landlon = np.where((constant['lsm'].squeeze() > 0.8).load()) # land is 1, ocean is 0
+datalat, datalon = constant.lat.values, constant.lon.values
+constant = constant.isel(lon=xr.DataArray(landlon, dims='landpoints'),
+                         lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
+constant['latdat'] = ('landpoints', constant.lat.values)
+constant['londat'] = ('landpoints', constant.lon.values)
 
 # load station locations
 largefilepath = '/net/so4/landclim/bverena/large_files/'
@@ -50,18 +56,15 @@ for pt in selected_landpoints:
 
 # define data for learning and save
 y_train = data.sel(landpoints=selected_landpoints)
-X_train = xr.concat([data.sel(landpoints=selected_landpoints).lon, 
-                     data.sel(landpoints=selected_landpoints).lat],
-                     dim='variable')
+X_train = constant.sel(landpoints=selected_landpoints).to_array()
 y_test = data.sel(landpoints=other_landpoints)
-X_test = xr.concat([data.sel(landpoints=other_landpoints).lon, 
-                    data.sel(landpoints=other_landpoints).lat],
-                    dim='variable')
+X_test = constant.sel(landpoints=other_landpoints).to_array()
 
 # save to file
-X_train.to_netcdf(f'{largefilepath}X_train.nc')
-y_train.to_netcdf(f'{largefilepath}y_train.nc')
-X_test.to_netcdf(f'{largefilepath}X_test.nc')
-y_test.to_netcdf(f'{largefilepath}y_test.nc')
+case = 'constant'
+X_train.to_netcdf(f'{largefilepath}X_train_{case}.nc')
+y_train.to_netcdf(f'{largefilepath}y_train_{case}.nc')
+X_test.to_netcdf(f'{largefilepath}X_test_{case}.nc')
+y_test.to_netcdf(f'{largefilepath}y_test_{case}.nc')
 np.array(station_grid_lat).dump(f'{largefilepath}station_grid_lat.npy')
 np.array(station_grid_lon).dump(f'{largefilepath}station_grid_lon.npy')
