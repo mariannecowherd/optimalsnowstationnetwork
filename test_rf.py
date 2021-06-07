@@ -10,7 +10,7 @@ import cartopy.crs as ccrs
 from sklearn.ensemble import RandomForestRegressor
 
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-case = 'constant'
+case = 'var'
 
 def to_latlon(data):
     lsmfile = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/era5_deterministic_recent.lsm.025deg.time-invariant.nc'

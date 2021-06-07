@@ -43,10 +43,17 @@ filenames_invar = [f'{era5path_invariant}era5_deterministic_recent.{varname}.025
 data = xr.open_mfdataset(filenames_var, combine='by_coords')
 constant_maps = xr.open_mfdataset(filenames_invar, combine='by_coords')
 #data_max = xr.open_mfdataset(filenames_max, combine='by_coords').resample(time='1m').max().drop('time_bnds')
+#data_max = data_max.rename({'skt':'sktmax','t2m':'t2mmax'})
+#data_max = data_max.mean(dim='time')
 #data_max.to_netcdf(largefilepath + 'era5_deterministic_recent.temp.025deg.1m.max.nc')
 #data_min = xr.open_mfdataset(filenames_min, combine='by_coords').resample(time='1m').min().drop('time_bnds')
+#data_min = data_min.rename({'skt':'sktmin','t2m':'t2mmin'})
+#data_min = data_min.mean(dim='time')
 #data_min.to_netcdf(largefilepath + 'era5_deterministic_recent.temp.025deg.1m.min.nc')
+import IPython; IPython.embed()
 data_sum = xr.open_mfdataset(filenames_sum, combine='by_coords').resample(time='1m').sum()
+data_sum = data_sum.rename({'e':'esum','tp':'tpsum'})
+data_sum = data_sum.mean(dim='time')
 data_sum.to_netcdf(largefilepath + 'era5_deterministic_recent.precip.025deg.1m.sum.nc')
 
 # create statistics: mean, extreme, trends
