@@ -20,19 +20,26 @@ largefilepath = '/net/so4/landclim/bverena/large_files/'
 era5path_invariant = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/'
 invarnames = ['lsm','z','slor','cvl','cvh', 'tvl', 'tvh']
 filenames_constant = [f'{era5path_invariant}era5_deterministic_recent.{varname}.025deg.time-invariant.nc' for varname in invarnames]
-filenames_variable = [f'{largefilepath}era5_deterministic_recent.temp.025deg.1m.max.nc', 
-                     f'{largefilepath}era5_deterministic_recent.temp.025deg.1m.min.nc',
-                     f'{largefilepath}era5_deterministic_recent.var.025deg.1m.mean.nc',
-                     f'{largefilepath}era5_deterministic_recent.precip.025deg.1m.sum.nc']
+filenames_variable = [f'{largefilepath}era5_deterministic_recent.temp.025deg.1y.max.nc', 
+                     f'{largefilepath}era5_deterministic_recent.temp.025deg.1y.min.nc',
+                     f'{largefilepath}era5_deterministic_recent.var.025deg.1y.mean.nc',
+                     f'{largefilepath}era5_deterministic_recent.precip.025deg.1y.sum.nc']
 constant = xr.open_mfdataset(filenames_constant, combine='by_coords').load()
 variable = xr.open_mfdataset(filenames_variable, combine='by_coords').load()
 landlat, landlon = np.where((constant['lsm'].squeeze() > 0.8).load()) # land is 1, ocean is 0
 datalat, datalon = constant.lat.values, constant.lon.values
-constant = constant.merge(variable)
 constant = constant.isel(lon=xr.DataArray(landlon, dims='landpoints'),
+                         lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
+variable = variable.isel(lon=xr.DataArray(landlon, dims='landpoints'),
                          lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
 constant['latdat'] = ('landpoints', constant.lat.values)
 constant['londat'] = ('landpoints', constant.lon.values)
+
+# stack constant maps and merge with variables
+ntimesteps = variable.coords['time'].size # TODO use climfill package
+constant = constant.expand_dims({'time': ntimesteps}, axis=1)
+constant['time'] = variable['time']
+variable = variable.merge(constant)
 
 # load station locations
 largefilepath = '/net/so4/landclim/bverena/large_files/'
@@ -50,9 +57,12 @@ for lat, lon in zip(stations_lat,stations_lon):
     station_grid_lon.append(find_closest(datalon, lon))
 
 # load era5 data
-sktfile = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_1m/processed/regrid/era5_deterministic_recent.skt.025deg.1m.2020.nc'
-data = xr.open_dataset(sktfile)
-data = data.mean(dim='time')['skt']
+years = list(np.arange(1979,2015))
+varnames = ['swvl1','swvl2','swvl3','swvl4']
+era5path_variant = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_1m/processed/regrid/'
+filenames = [f'{era5path_variant}era5_deterministic_recent.{varname}.025deg.1m.{year}.nc' for year in years for varname in varnames]
+data = xr.open_mfdataset(filenames)
+data = data.resample(time='1y').mean().to_array().mean(dim='variable')
 data = data.isel(lon=xr.DataArray(landlon, dims='landpoints'),
                  lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
 
@@ -72,12 +82,13 @@ for pt in selected_landpoints:
 
 # define data for learning and save
 y_train = data.sel(landpoints=selected_landpoints)
-X_train = constant.sel(landpoints=selected_landpoints).to_array()
+X_train = variable.sel(landpoints=selected_landpoints).to_array()
 y_test = data.sel(landpoints=other_landpoints)
-X_test = constant.sel(landpoints=other_landpoints).to_array()
+X_test = variable.sel(landpoints=other_landpoints).to_array()
+import IPython; IPython.embed()
 
 # save to file
-case = 'var'
+case = 'yearly'
 X_train.to_netcdf(f'{largefilepath}X_train_{case}.nc')
 y_train.to_netcdf(f'{largefilepath}y_train_{case}.nc')
 X_test.to_netcdf(f'{largefilepath}X_test_{case}.nc')
