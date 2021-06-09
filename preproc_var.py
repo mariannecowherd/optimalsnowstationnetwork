@@ -76,7 +76,7 @@ for lat, lon in zip(station_grid_lat,station_grid_lon):
     except IndexError as e: # station in the ocean acc to era5 landmask
         pass
 selected_landpoints = np.unique(selected_landpoints) # some era5 gridpoints contain more than two stations
-other_landpoints = np.arange(data.shape[0]).tolist()
+other_landpoints = np.arange(data.landpoints.shape[0]).tolist()
 for pt in selected_landpoints:
     other_landpoints.remove(pt)
 
@@ -85,7 +85,12 @@ y_train = data.sel(landpoints=selected_landpoints)
 X_train = variable.sel(landpoints=selected_landpoints).to_array()
 y_test = data.sel(landpoints=other_landpoints)
 X_test = variable.sel(landpoints=other_landpoints).to_array()
-import IPython; IPython.embed()
+
+# stack along time axis
+y_train = y_train.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
+y_test = y_test.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
+X_train = X_train.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
+X_test = X_test.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
 
 # save to file
 case = 'yearly'
