@@ -80,20 +80,37 @@ other_landpoints = np.arange(data.landpoints.shape[0]).tolist()
 for pt in selected_landpoints:
     other_landpoints.remove(pt)
 
-# define data for learning and save
-y_train = data.sel(landpoints=selected_landpoints)
-X_train = variable.sel(landpoints=selected_landpoints).to_array()
-y_test = data.sel(landpoints=other_landpoints)
-X_test = variable.sel(landpoints=other_landpoints).to_array()
-
 # stack along time axis
-y_train = y_train.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
-y_test = y_test.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
-X_train = X_train.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
-X_test = X_test.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
+data = data.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
+variable = variable.stack(datapoints=("time", "landpoints")).reset_index("datapoints").to_array().T
+
+# normalise values
+case = 'yearly'
+datamean = data.mean()
+datastd = data.std()
+data = (data - datamean) / datastd
+variablemean = variable.mean(dim='datapoints')
+variablestd = variable.std(dim='datapoints')
+variable = (variable - datamean) / datastd
+datamean.to_netcdf(f'{largefilepath}datamean_{case}.nc')
+variablemean.to_netcdf(f'{largefilepath}variablemean_{case}.nc')
+datastd.to_netcdf(f'{largefilepath}datastd_{case}.nc')
+variablestd.to_netcdf(f'{largefilepath}variablestd_{case}.nc')
+
+# define data for testing and training
+y_train = data.where(data.landpoints.isin(selected_landpoints), drop=True)
+y_test = data.where(data.landpoints.isin(other_landpoints), drop=True)
+X_train = variable.where(variable.landpoints.isin(selected_landpoints), drop=True)
+X_test = variable.where(variable.landpoints.isin(other_landpoints), drop=True)
+
+# define data for learning and save
+#import IPython; IPython.embed()
+#y_train = data.sel(landpoints=selected_landpoints)
+#X_train = variable.sel(landpoints=selected_landpoints).to_array()
+#y_test = data.sel(landpoints=other_landpoints)
+#X_test = variable.sel(landpoints=other_landpoints).to_array()
 
 # save to file
-case = 'yearly'
 X_train.to_netcdf(f'{largefilepath}X_train_{case}.nc')
 y_train.to_netcdf(f'{largefilepath}y_train_{case}.nc')
 X_test.to_netcdf(f'{largefilepath}X_test_{case}.nc')

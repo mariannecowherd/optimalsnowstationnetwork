@@ -19,7 +19,7 @@ def to_latlon(data):
     shape = lsm['lsm'].squeeze().shape
     landlat, landlon = np.where((lsm['lsm'].squeeze() > 0.8).load()) # land is 1, ocean is 0
     tmp = xr.DataArray(np.full((t,shape[0],shape[1]),np.nan), coords=[data.coords['time'],lsm.coords['lat'], lsm.coords['lon']], dims=['time','lat','lon'])
-    tmp.values[:,landlat,landlon] = data.T
+    tmp.values[:,landlat,landlon] = data
     return tmp
 
 # load data
@@ -48,6 +48,7 @@ kwargs = {'n_estimators': n_trees,
           'n_jobs': None, # set to number of trees
           'verbose': 0}
 rf = RandomForestRegressor(**kwargs)
+# TODO idea: add penalty for negative soil moisture?
 rf.fit(X_train, y_train)
 
 res = np.zeros((n_trees, X_test.datapoints.shape[0]))
@@ -63,15 +64,14 @@ y_predict = xr.full_like(y_test, np.nan)
 y_unc = xr.full_like(y_test, np.nan)
 y_predict[:] = mean
 y_unc[:] = (upper - lower)
-import IPython; IPython.embed()
-datamap = to_latlon(xr.concat([y_test, y_train_empty], dim='datapoints').set_index(datapoints=("time", "landpoints")).unstack("datapoints"))
-datamap = to_latlon(xr.concat([y_test, y_train_empty], dim='landpoints'))
-predmap = to_latlon(xr.concat([y_predict, y_train_empty], dim='landpoints'))
-uncmap = to_latlon(xr.concat([y_unc, y_train_empty], dim='landpoints'))
+datamap = to_latlon(xr.concat([y_test, y_train_empty], dim='datapoints').set_index(datapoints=('time', 'landpoints')).unstack('datapoints'))
+predmap = to_latlon(xr.concat([y_predict, y_train_empty], dim='datapoints').set_index(datapoints=('time', 'landpoints')).unstack('datapoints'))
+uncmap = to_latlon(xr.concat([y_unc, y_train_empty], dim='datapoints').set_index(datapoints=('time', 'landpoints')).unstack('datapoints'))
+datamean = xr.open_dataarray(f'{largefilepath}datamean_{case}.nc')
+datastd = xr.open_dataarray(f'{largefilepath}datastd_{case}.nc')
 datamap = datamap * datastd + datamean
 predmap = predmap * datastd + datamean
 uncmap = uncmap * datastd 
-import IPython; IPython.embed()
 
 # plot prediction and uncertainty
 proj = ccrs.PlateCarree()
@@ -79,8 +79,8 @@ fig = plt.figure(figsize=(20,3))
 ax1 = fig.add_subplot(131, projection=proj)
 ax2 = fig.add_subplot(132, projection=proj)
 ax3 = fig.add_subplot(133, projection=proj)
-datamap.plot(ax=ax1, transform=proj, cmap='coolwarm', vmin=230, vmax=310)
-predmap.plot(ax=ax2, transform=proj, cmap='coolwarm', vmin=230, vmax=310)
+datamap.mean(dim='time').plot(ax=ax1, transform=proj, cmap='Blues', vmin=0, vmax=1)
+predmap.mean(dim='time').plot(ax=ax2, transform=proj, cmap='Blues', vmin=0, vmax=1)
 uncmap.plot(ax=ax3, transform=proj, cmap='pink_r')
 ax1.scatter(station_grid_lon, station_grid_lat, marker='x', s=5, c='indianred')
 ax2.scatter(station_grid_lon, station_grid_lat, marker='x', s=5, c='indianred')
