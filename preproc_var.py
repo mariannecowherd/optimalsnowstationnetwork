@@ -43,9 +43,12 @@ variable = variable.merge(constant)
 
 # load station locations
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-station_coords = pd.read_csv(largefilepath + 'fluxnet_station_coords.csv')
-stations_lat = station_coords.LOCATION_LAT.values
-stations_lon = station_coords.LOCATION_LONG.values
+#station_coords = pd.read_csv(largefilepath + 'fluxnet_station_coords.csv')
+#stations_lat = station_coords.LOCATION_LAT.values
+#stations_lon = station_coords.LOCATION_LONG.values
+station_coords = np.load(largefilepath + 'ISMN_station_locations.npy', allow_pickle=True)
+stations_lat = station_coords[:,0]
+stations_lon = station_coords[:,1]
 
 # interpolate station locations on era5 grid
 def find_closest(list_of_values, number):
