@@ -2,6 +2,7 @@
 plot koeppen climate classification and classification per station
 """
 
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -9,7 +10,7 @@ import xarray as xr
 
 # open koeppen map
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-filename = f'{largefilepath}Beck_KG_V1_present_0p0083.tif'
+filename = f'{largefilepath}Beck_KG_V1_present_0p083.tif'
 koeppen = xr.open_rasterio(filename)
 
 # open station locations
@@ -32,18 +33,48 @@ koeppen_class = []
 for lat, lon in zip(station_grid_lat,station_grid_lon):
     koeppen_class.append(koeppen.sel(x=lon, y=lat).values[0])
 
+# count grid points per koeppen classe
+station_density = []
+for i in range(30):
+    #weights # TODO area per gridpoints
+    n_gridpoints = (koeppen == i).sum().item()
+    n_stations = (np.array(koeppen_class) == i).sum()
+    station_density.append(n_stations / n_gridpoints)
+
+# plot station density per koeppen climate map
+density = xr.full_like(koeppen, np.nan)
+for i in range(30):
+    density = density.where(koeppen != i, station_density[i])
 
 # plot
 legend = pd.read_csv('koeppen_legend.txt', delimiter=';')
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(20,10))
-koeppen.plot(ax=ax[0], add_colorbar=False, cmap='terrain')
-ax[0].set_title('koeppen climate classes and ISMN stations')
-ax[0].set_xticklabels('')
-ax[0].set_yticklabels('')
-ax[0].scatter(stations_lon, stations_lat, marker='x', s=5, c='indianred')
-ax[1].hist(koeppen_class, bins=np.arange(30), align='left')
-ax[1].set_xticks(np.arange(30))
-ax[1].set_xticklabels(legend.Short.values, rotation=90)
-ax[1].set_xlabel('koeppen climate classes')
-ax[1].set_ylabel('number of stations')
-plt.savefig('koeppen_ismn.png')
+proj = ccrs.PlateCarree()
+fig = plt.figure(figsize=(20,5))
+ax1 = fig.add_subplot(121, projection=proj)
+ax2 = fig.add_subplot(122, projection=proj)
+koeppen.plot(ax=ax1, add_colorbar=False, cmap='terrain', transform=proj)
+density.plot(ax=ax2, add_colorbar=False, cmap='hot_r', transform=proj)
+ax1.set_title('koeppen climate classes and ISMN stations')
+ax2.set_title('station density per koeppen class')
+ax1.coastlines()
+ax2.coastlines()
+plt.show()
+
+
+# plot hist
+#fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(20,10))
+#koeppen.plot(ax=ax[0], add_colorbar=False, cmap='terrain')
+#ax[0].set_title('koeppen climate classes and ISMN stations')
+#ax[0].set_xticklabels('')
+#ax[0].set_yticklabels('')
+#ax[0].scatter(stations_lon, stations_lat, marker='x', s=5, c='indianred')
+#density.plot(ax=ax[1], add_colorbar=False, cmap='hot_r')
+###ax[1].hist(koeppen_class, bins=np.arange(30), align='left')
+##ax[1].bar(range(30), station_density)
+##ax[1].set_xticks(np.arange(30))
+##ax[1].set_xticklabels(legend.Short.values, rotation=90)
+##ax[1].set_xlabel('koeppen climate classes')
+###ax[1].set_ylabel('number of stations')
+##ax[1].set_ylabel('stations per gridpoint')
+##plt.savefig('koeppen_ismn_pergridpoint.png')
+#plt.show()
