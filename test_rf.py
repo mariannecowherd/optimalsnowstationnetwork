@@ -6,11 +6,12 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt
+import IPython; IPython.embed()
 import cartopy.crs as ccrs
 from sklearn.ensemble import RandomForestRegressor
 
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-case = 'yearly'
+case = 'latlontime'
 
 def to_latlon(data):
     t = data.time.shape[0]
@@ -73,8 +74,12 @@ datamap = datamap * datastd + datamean
 predmap = predmap * datastd + datamean
 uncmap = uncmap * datastd 
 
+# save results
+datamap.to_netcdf(f'{largefilepath}ERA5_{case}.nc')
+predmap.to_netcdf(f'{largefilepath}RFpred_{case}.nc')
+uncmap.to_netcdf(f'{largefilepath}UncPred_{case}.nc')
+
 # plot prediction and uncertainty
-import IPython; IPython.embed()
 proj = ccrs.PlateCarree()
 fig = plt.figure(figsize=(3,20))
 ax1 = fig.add_subplot(311, projection=proj)
