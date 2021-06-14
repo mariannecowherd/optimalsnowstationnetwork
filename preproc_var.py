@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+# TODO add extremes, trends
 # save means in file
 #years = list(np.arange(1979,2020))
 #largefilepath = '/net/so4/landclim/bverena/large_files/'
@@ -28,6 +29,7 @@ filenames_variable = [f'{largefilepath}era5_deterministic_recent.temp.025deg.1y.
                      f'{largefilepath}era5_deterministic_recent.precip.025deg.1y.sum.nc']
 constant = xr.open_mfdataset(filenames_constant, combine='by_coords').load()
 variable = xr.open_mfdataset(filenames_variable, combine='by_coords').load()
+pltarr = xr.full_like(variable['e'], 0)
 landlat, landlon = np.where((constant['lsm'].squeeze() > 0.8).load()) # land is 1, ocean is 0
 datalat, datalon = constant.lat.values, constant.lon.values
 constant = constant.isel(lon=xr.DataArray(landlon, dims='landpoints'),
@@ -68,8 +70,20 @@ for lat, lon in zip(stations_lat,stations_lon):
     station_grid_lat.append(find_closest(datalat, lat))
     station_grid_lon.append(find_closest(datalon, lon))
 
-#for lat, lon, start, end in zip(station_grid_lat, station_grid_lon, stations_start, stations_end):
-#    variable.sel(lat=lat, lon=lon, time=slice(start, end))
+# plot 3D lat lon time plot!
+for lat, lon, start, end in zip(station_grid_lat, station_grid_lon, stations_start, stations_end):
+    pltarr.loc[slice(start,end),lat,lon] = 1
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+fig = plt.figure()
+z,x,y = pltarr.values.nonzero()
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(x, y, -z, zdir='z', c= 'red')
+plt.show()
+station_coords['lat_grid'] = station_grid_lat
+station_coords['lon_grid'] = station_grid_lon
+#station_coords.to_csv(f'{largefilepath}station_info_grid.csv')
 # this would be easier for slicing, but we cannot split data into test and train before
 # creating dimension datapoints because reindexing to worldmap would fail if test and train
 # are not merged again after learning
@@ -105,9 +119,10 @@ print('stack and normalise')
 data = data.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
 variable = variable.stack(datapoints=("time", "landpoints")).reset_index("datapoints").to_array().T
 data['datapoints'] = np.arange(data.shape[0]) # give some coords for datapoint dimension
+variable['datapoints'] = np.arange(variable.shape[0]) # give some coords for datapoint dimension
 
 # normalise values
-case = 'yearly'
+case = 'latlontime'
 datamean = data.mean()
 datastd = data.std()
 data = (data - datamean) / datastd
@@ -120,24 +135,26 @@ datastd.to_netcdf(f'{largefilepath}datastd_{case}.nc')
 variablestd.to_netcdf(f'{largefilepath}variablestd_{case}.nc')
 
 # define data for testing and training
+# caution: takes 45 minutes !!!
 print('split into test and train')
-y_train = []
 y_train_datacoords = []
-import IPython; IPython.embed()
-for lat, lon, start, end in zip(station_grid_lat, station_grid_lon, stations_start, stations_end):
+for i, (lat, lon, start, end) in enumerate(zip(station_grid_lat, station_grid_lon, stations_start, stations_end)):
     one_station = data.where((data.lat == lat) & (data.lon == lon) & (data.time.isin(pd.date_range(start,end,freq='y'))), drop=True)
-    if one_station.shape[0] > 0:
-        print(one_station.datapoints.values)
-        y_train_datacoords.append(one_station.datapoints.values.tolist())
-        y_train.append(one_station)
-y_train = xr.concat(y_train, dim='datapoints')
+    datapoints_one_station = one_station.datapoints.values.tolist()
+    y_train_datacoords.append(datapoints_one_station)
+    print(len(station_grid_lat),i,datapoints_one_station)
 y_train_datacoords = [item for items in y_train_datacoords for item in items] # flatten list
 import IPython; IPython.embed()
 
-y_train = data.where(data.landpoints.isin(selected_landpoints), drop=True)
-y_test = data.where(data.landpoints.isin(other_landpoints), drop=True)
-X_train = variable.where(variable.landpoints.isin(selected_landpoints), drop=True)
-x_test = variable.where(variable.landpoints.isin(other_landpoints), drop=True)
+y_train = data.where(data.datapoints.isin(y_train_datacoords), drop=True)
+y_test = data.where(~data.datapoints.isin(y_train_datacoords), drop=True)
+X_train = variable.where(data.datapoints.isin(y_train_datacoords), drop=True)
+X_test = variable.where(~data.datapoints.isin(y_train_datacoords), drop=True)
+
+#y_train = data.where(data.landpoints.isin(selected_landpoints), drop=True)
+#y_test = data.where(data.landpoints.isin(other_landpoints), drop=True)
+#X_train = variable.where(variable.landpoints.isin(selected_landpoints), drop=True)
+#x_test = variable.where(variable.landpoints.isin(other_landpoints), drop=True)
 
 # define data for learning and save
 #import IPython; IPython.embed()
