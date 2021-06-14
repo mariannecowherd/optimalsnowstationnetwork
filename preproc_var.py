@@ -2,6 +2,7 @@
 TEST
 """
 
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -16,6 +17,7 @@ import xarray as xr
 #data.mean(dim='time').to_netcdf(largefilepath + 'era5_deterministic_recent.var.025deg.1m.mean.nc')
 
 # load feature space X
+print('load and stack data')
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 era5path_invariant = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/'
 invarnames = ['lsm','z','slor','cvl','cvh', 'tvl', 'tvh']
@@ -34,6 +36,7 @@ variable = variable.isel(lon=xr.DataArray(landlon, dims='landpoints'),
                          lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
 constant['latdat'] = ('landpoints', constant.lat.values)
 constant['londat'] = ('landpoints', constant.lon.values)
+#constant = constant.squeeze()
 
 # stack constant maps and merge with variables
 ntimesteps = variable.coords['time'].size # TODO use climfill package
@@ -42,13 +45,19 @@ constant['time'] = variable['time']
 variable = variable.merge(constant)
 
 # load station locations
+print('load station data')
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 #station_coords = pd.read_csv(largefilepath + 'fluxnet_station_coords.csv')
 #stations_lat = station_coords.LOCATION_LAT.values
 #stations_lon = station_coords.LOCATION_LONG.values
-station_coords = np.load(largefilepath + 'ISMN_station_locations.npy', allow_pickle=True)
-stations_lat = station_coords[:,0]
-stations_lon = station_coords[:,1]
+#station_coords = np.load(largefilepath + 'ISMN_station_locations.npy', allow_pickle=True)
+#stations_lat = station_coords[:,0]
+#stations_lon = station_coords[:,1]
+station_coords = pd.read_csv(largefilepath + 'station_info.csv')
+stations_lat = station_coords.lat.values
+stations_lon = station_coords.lon.values
+stations_start = [datetime.strptime(date, '%Y-%m-%d %M:%S:%f') for date in station_coords.start.values]
+stations_end = [datetime.strptime(date, '%Y-%m-%d %M:%S:%f') for date in station_coords.end.values]
 
 # interpolate station locations on era5 grid
 def find_closest(list_of_values, number):
@@ -59,7 +68,14 @@ for lat, lon in zip(stations_lat,stations_lon):
     station_grid_lat.append(find_closest(datalat, lat))
     station_grid_lon.append(find_closest(datalon, lon))
 
+#for lat, lon, start, end in zip(station_grid_lat, station_grid_lon, stations_start, stations_end):
+#    variable.sel(lat=lat, lon=lon, time=slice(start, end))
+# this would be easier for slicing, but we cannot split data into test and train before
+# creating dimension datapoints because reindexing to worldmap would fail if test and train
+# are not merged again after learning
+
 # load era5 data
+print('load y data')
 years = list(np.arange(1979,2015))
 varnames = ['swvl1','swvl2','swvl3','swvl4']
 era5path_variant = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_1m/processed/regrid/'
@@ -70,6 +86,7 @@ data = data.isel(lon=xr.DataArray(landlon, dims='landpoints'),
                  lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
 
 # divide era5 gridpoints into those w station and those without
+print('calculate landpoints of stations')
 lat_landpoints = data.lat.values
 lon_landpoints = data.lon.values
 selected_landpoints = []
@@ -84,8 +101,10 @@ for pt in selected_landpoints:
     other_landpoints.remove(pt)
 
 # stack along time axis
+print('stack and normalise')
 data = data.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
 variable = variable.stack(datapoints=("time", "landpoints")).reset_index("datapoints").to_array().T
+data['datapoints'] = np.arange(data.shape[0]) # give some coords for datapoint dimension
 
 # normalise values
 case = 'yearly'
@@ -101,10 +120,24 @@ datastd.to_netcdf(f'{largefilepath}datastd_{case}.nc')
 variablestd.to_netcdf(f'{largefilepath}variablestd_{case}.nc')
 
 # define data for testing and training
+print('split into test and train')
+y_train = []
+y_train_datacoords = []
+import IPython; IPython.embed()
+for lat, lon, start, end in zip(station_grid_lat, station_grid_lon, stations_start, stations_end):
+    one_station = data.where((data.lat == lat) & (data.lon == lon) & (data.time.isin(pd.date_range(start,end,freq='y'))), drop=True)
+    if one_station.shape[0] > 0:
+        print(one_station.datapoints.values)
+        y_train_datacoords.append(one_station.datapoints.values.tolist())
+        y_train.append(one_station)
+y_train = xr.concat(y_train, dim='datapoints')
+y_train_datacoords = [item for items in y_train_datacoords for item in items] # flatten list
+import IPython; IPython.embed()
+
 y_train = data.where(data.landpoints.isin(selected_landpoints), drop=True)
 y_test = data.where(data.landpoints.isin(other_landpoints), drop=True)
 X_train = variable.where(variable.landpoints.isin(selected_landpoints), drop=True)
-X_test = variable.where(variable.landpoints.isin(other_landpoints), drop=True)
+x_test = variable.where(variable.landpoints.isin(other_landpoints), drop=True)
 
 # define data for learning and save
 #import IPython; IPython.embed()
