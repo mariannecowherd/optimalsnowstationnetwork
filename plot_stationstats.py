@@ -3,6 +3,7 @@ number of stations per year vs prediction uncertainty and error
 """
 
 import numpy as np
+from datetime import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -27,14 +28,16 @@ no_stations = []
 for year in np.arange(1950,2021):
     no_stations.append(((year >= start_year) & (year <= end_year)).sum())
 
-proj = ccrs.PlateCarree()
 no_years = []
 for start, end in zip(stations.start, stations.end):
     no_years.append(pd.date_range(start,end,freq='y').shape[0])
 
-# plot 3D lat lon time plot!
-pltarr = xr.full_like(variable['e'], 0)
-for lat, lon, start, end in zip(stations_grid_lat, stations_grid_lon, stations_start, stations_end):
+# 3d plot station coverage
+data = xr.open_dataset(largefilepath + 'era5_deterministic_recent.var.025deg.1y.mean.nc')
+pltarr = xr.full_like(data['e'], 0)
+stations.start = [datetime.strptime(date, '%Y-%m-%d %M:%S:%f') for date in stations.start]
+stations.end = [datetime.strptime(date, '%Y-%m-%d %M:%S:%f') for date in stations.end]
+for lat, lon, start, end in zip(stations.lat_grid, stations.lon_grid, stations.start, stations.end):
     pltarr.loc[slice(start,end),lat,lon] = 1
 fig = plt.figure()
 z,x,y = pltarr.values.nonzero()
@@ -43,6 +46,7 @@ ax.scatter(x, y, -z, zdir='z', c= 'red')
 plt.show()
 
 # plot statistcs on stations
+proj = ccrs.PlateCarree()
 fig = plt.figure(figsize=(10,5))
 ax1 = fig.add_subplot(131, projection=proj)
 ax2 = fig.add_subplot(132, projection=proj)

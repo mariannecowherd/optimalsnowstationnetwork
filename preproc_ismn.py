@@ -16,13 +16,13 @@ largefilepath = '/net/so4/landclim/bverena/large_files/'
 station_folders = glob.glob(f'{ismnpath}**/', recursive=True)
 
 # create empty pandas dataframe for data
+print('find all station information')
 index = range(2827)
 columns = ['lat','lon','start','end']
 df = pd.DataFrame(index=index, columns=columns)
 
 i = 0
 for folder in station_folders:
-    print(folder)
     try:
         onefile = glob.glob(f'{folder}*.stm', recursive=True)[0]
     except IndexError: # list index out of range -> no .stm files in this directory
@@ -42,6 +42,7 @@ for folder in station_folders:
     i += 1
 
 # interpolate station locations on era5 grid
+print('interpolate station locations on era5 grid')
 filepath = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/'
 filename = f'{filepath}era5_deterministic_recent.lsm.025deg.time-invariant.nc'
 data = xr.open_dataset(filename)
@@ -50,36 +51,23 @@ def find_closest(list_of_values, number):
 station_grid_lat = []
 station_grid_lon = []
 for lat, lon in zip(df.lat,df.lon):
-    print(lat, lon)
-    station_grid_lat.append(find_closest(data.lat, lat))
-    station_grid_lon.append(find_closest(data.lon, lon))
+    station_grid_lat.append(find_closest(data.lat.values, lat))
+    station_grid_lon.append(find_closest(data.lon.values, lon))
 df['lat_grid'] = station_grid_lat
 df['lon_grid'] = station_grid_lon
 
 # koeppen climate class per location
+print('get koeppen class of station location')
 filename = f'{largefilepath}Beck_KG_V1_present_0p0083.tif'
 koeppen = xr.open_rasterio(filename)
 koeppen = koeppen.rename({'x':'lon','y':'lat'}).squeeze()
 
-import IPython; IPython.embed()
 koeppen_class = []
 for lat, lon in zip(station_grid_lat,station_grid_lon):
-    print(lat, lon)
-    klat = find_closest(koeppen.lat, lat)
-    klon = find_closest(koeppen.lon, lon)
+    klat = find_closest(koeppen.lat.values, lat)
+    klon = find_closest(koeppen.lon.values, lon)
     koeppen_class.append(koeppen.sel(lon=klon, lat=klat).values.item())
 df['koeppen_class'] = koeppen_class
-station_coords.to_csv(f'{largefilepath}station_info_grid.csv')
+print(df.head())
+df.to_csv(f'{largefilepath}station_info_grid.csv')
 
-quit()
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-fig = plt.figure()
-z,x,y = pltarr.values.nonzero()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(x, y, -z, zdir='z', c= 'red')
-plt.show()
-
-# plot 3D lat lon time plot!
-for lat, lon, start, end in zip(df.lat, df.lon, df.start, df.end):
-    pltarr.loc[slice(start,end),lat,lon] = 1
