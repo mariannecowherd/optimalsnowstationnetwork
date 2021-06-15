@@ -6,8 +6,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt
-import IPython; IPython.embed()
-import cartopy.crs as ccrs
 from sklearn.ensemble import RandomForestRegressor
 
 largefilepath = '/net/so4/landclim/bverena/large_files/'
@@ -78,24 +76,3 @@ uncmap = uncmap * datastd
 datamap.to_netcdf(f'{largefilepath}ERA5_{case}.nc')
 predmap.to_netcdf(f'{largefilepath}RFpred_{case}.nc')
 uncmap.to_netcdf(f'{largefilepath}UncPred_{case}.nc')
-
-# plot prediction and uncertainty
-proj = ccrs.PlateCarree()
-fig = plt.figure(figsize=(3,20))
-ax1 = fig.add_subplot(311, projection=proj)
-ax2 = fig.add_subplot(312, projection=proj)
-ax3 = fig.add_subplot(313, projection=proj)
-datamap.mean(dim='time').plot(ax=ax1, transform=proj, cmap='Blues', vmin=0, vmax=1)
-(datamap - predmap).mean(dim='time').plot(ax=ax2, transform=proj, cmap='coolwarm', vmin=-0.5, vmax=0.5)
-uncmap.mean(dim='time').plot(ax=ax3, transform=proj, cmap='pink_r')
-ax1.scatter(station_grid_lon, station_grid_lat, marker='x', s=5, c='indianred')
-ax2.scatter(station_grid_lon, station_grid_lat, marker='x', s=5, c='indianred')
-ax3.scatter(station_grid_lon, station_grid_lat, marker='x', s=5, c='indianred')
-ax1.coastlines()
-ax2.coastlines()
-ax3.coastlines()
-ax1.set_title('ERA5 mean soil moisture (1979 - 2015)')
-ax2.set_title('prediction error between ERA5 and RF prediction')
-ax3.set_title('uncertainty of RF prediction (tree quantiles)')
-import IPython; IPython.embed()
-plt.savefig(f'rf_{case}.png')

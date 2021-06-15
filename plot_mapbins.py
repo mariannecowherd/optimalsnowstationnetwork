@@ -9,13 +9,14 @@ import xarray as xr
 import xesmf as xe
 
 # open data map
+case = 'latlontime'
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-pred = f'{largefilepath}RFpred_yearly.nc'
-orig = f'{largefilepath}ERA5_yearly.nc'
+pred = f'{largefilepath}RFpred_{case}.nc'
+orig = f'{largefilepath}ERA5_{case}.nc'
 pred = xr.open_dataarray(pred)
 orig = xr.open_dataarray(orig)
 pred = (pred - orig).mean(dim='time')
-unc = f'{largefilepath}UncPred_yearly.nc'
+unc = f'{largefilepath}UncPred_{case}.nc'
 unc = xr.open_dataarray(unc)
 filename = f'{largefilepath}Beck_KG_V1_present_0p5.tif'
 koeppen = xr.open_rasterio(filename)
@@ -66,7 +67,7 @@ for i in range(30):
 
 legend = pd.read_csv('koeppen_legend.txt', delimiter=';')
 labels = legend.Short.values
-fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(10,5))
+fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(15,5))
 fig.suptitle('koeppen climate classes')
 ax[0].scatter(mean_pred, mean_unc, c='blue')
 #plt.scatter(no_stations, mean_pred, c='red')
@@ -84,7 +85,7 @@ ax[1].set_ylabel('mean prediction uncertainty')
 ax[1].set_xlabel('number of stations')
 ax[2].set_ylabel('mean prediction error')
 ax[2].set_xlabel('number of stations')
-plt.show()
+plt.savefig(f'scatter_{case}.png')
 
 quit()
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,10))
