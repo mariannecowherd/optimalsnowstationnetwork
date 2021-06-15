@@ -29,7 +29,6 @@ filenames_variable = [f'{largefilepath}era5_deterministic_recent.temp.025deg.1y.
                      f'{largefilepath}era5_deterministic_recent.precip.025deg.1y.sum.nc']
 constant = xr.open_mfdataset(filenames_constant, combine='by_coords').load()
 variable = xr.open_mfdataset(filenames_variable, combine='by_coords').load()
-pltarr = xr.full_like(variable['e'], 0)
 landlat, landlon = np.where((constant['lsm'].squeeze() > 0.8).load()) # land is 1, ocean is 0
 datalat, datalon = constant.lat.values, constant.lon.values
 constant = constant.isel(lon=xr.DataArray(landlon, dims='landpoints'),
@@ -49,40 +48,12 @@ variable = variable.merge(constant)
 # load station locations
 print('load station data')
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-#station_coords = pd.read_csv(largefilepath + 'fluxnet_station_coords.csv')
-#stations_lat = station_coords.LOCATION_LAT.values
-#stations_lon = station_coords.LOCATION_LONG.values
-#station_coords = np.load(largefilepath + 'ISMN_station_locations.npy', allow_pickle=True)
-#stations_lat = station_coords[:,0]
-#stations_lon = station_coords[:,1]
-station_coords = pd.read_csv(largefilepath + 'station_info.csv')
-stations_lat = station_coords.lat.values
-stations_lon = station_coords.lon.values
+station_coords = pd.read_csv(largefilepath + 'station_info_grid.csv')
+stations_grid_lat = station_coords.lat_grid.values
+stations_grid_lon= station_coords.lon_grid.values
 stations_start = [datetime.strptime(date, '%Y-%m-%d %M:%S:%f') for date in station_coords.start.values]
 stations_end = [datetime.strptime(date, '%Y-%m-%d %M:%S:%f') for date in station_coords.end.values]
 
-# interpolate station locations on era5 grid
-def find_closest(list_of_values, number):
-    return min(list_of_values, key=lambda x:abs(x-number))
-station_grid_lat = []
-station_grid_lon = []
-for lat, lon in zip(stations_lat,stations_lon):
-    station_grid_lat.append(find_closest(datalat, lat))
-    station_grid_lon.append(find_closest(datalon, lon))
-
-# plot 3D lat lon time plot!
-for lat, lon, start, end in zip(station_grid_lat, station_grid_lon, stations_start, stations_end):
-    pltarr.loc[slice(start,end),lat,lon] = 1
-
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-fig = plt.figure()
-z,x,y = pltarr.values.nonzero()
-ax = fig.add_subplot(111, projection='3d')
-ax.scatter(x, y, -z, zdir='z', c= 'red')
-plt.show()
-station_coords['lat_grid'] = station_grid_lat
-station_coords['lon_grid'] = station_grid_lon
 #station_coords.to_csv(f'{largefilepath}station_info_grid.csv')
 # this would be easier for slicing, but we cannot split data into test and train before
 # creating dimension datapoints because reindexing to worldmap would fail if test and train
@@ -99,20 +70,20 @@ data = data.resample(time='1y').mean().to_array().mean(dim='variable')
 data = data.isel(lon=xr.DataArray(landlon, dims='landpoints'),
                  lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
 
-# divide era5 gridpoints into those w station and those without
-print('calculate landpoints of stations')
-lat_landpoints = data.lat.values
-lon_landpoints = data.lon.values
-selected_landpoints = []
-for lat, lon in zip(station_grid_lat,station_grid_lon):
-    try:
-        selected_landpoints.append(np.intersect1d(np.where(lat_landpoints == lat), np.where(lon_landpoints == lon))[0])
-    except IndexError as e: # station in the ocean acc to era5 landmask
-        pass
-selected_landpoints = np.unique(selected_landpoints) # some era5 gridpoints contain more than two stations
-other_landpoints = np.arange(data.landpoints.shape[0]).tolist()
-for pt in selected_landpoints:
-    other_landpoints.remove(pt)
+## divide era5 gridpoints into those w station and those without
+#print('calculate landpoints of stations')
+#lat_landpoints = data.lat.values
+#lon_landpoints = data.lon.values
+#selected_landpoints = []
+#for lat, lon in zip(stations_grid_lat,stations_grid_lon):
+#    try:
+#        selected_landpoints.append(np.intersect1d(np.where(lat_landpoints == lat), np.where(lon_landpoints == lon))[0])
+#    except IndexError as e: # station in the ocean acc to era5 landmask
+#        pass
+#selected_landpoints = np.unique(selected_landpoints) # some era5 gridpoints contain more than two stations
+#other_landpoints = np.arange(data.landpoints.shape[0]).tolist()
+#for pt in selected_landpoints:
+#    other_landpoints.remove(pt)
 
 # stack along time axis
 print('stack and normalise')
@@ -136,13 +107,13 @@ variablestd.to_netcdf(f'{largefilepath}variablestd_{case}.nc')
 
 # define data for testing and training
 # caution: takes 45 minutes !!!
-print('split into test and train')
+print('calculate landpoints of stations')
 y_train_datacoords = []
-for i, (lat, lon, start, end) in enumerate(zip(station_grid_lat, station_grid_lon, stations_start, stations_end)):
+for i, (lat, lon, start, end) in enumerate(zip(stations_grid_lat, stations_grid_lon, stations_start, stations_end)):
     one_station = data.where((data.lat == lat) & (data.lon == lon) & (data.time.isin(pd.date_range(start,end,freq='y'))), drop=True)
     datapoints_one_station = one_station.datapoints.values.tolist()
     y_train_datacoords.append(datapoints_one_station)
-    print(len(station_grid_lat),i,datapoints_one_station)
+    print(len(stations_grid_lat),i,datapoints_one_station)
 y_train_datacoords = [item for items in y_train_datacoords for item in items] # flatten list
 import IPython; IPython.embed()
 

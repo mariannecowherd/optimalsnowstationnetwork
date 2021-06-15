@@ -61,10 +61,13 @@ filename = f'{largefilepath}Beck_KG_V1_present_0p0083.tif'
 koeppen = xr.open_rasterio(filename)
 koeppen = koeppen.rename({'x':'lon','y':'lat'}).squeeze()
 
+import IPython; IPython.embed()
 koeppen_class = []
 for lat, lon in zip(station_grid_lat,station_grid_lon):
     print(lat, lon)
-    koeppen_class.append(koeppen.sel(lon=lon, lat=lat).values.item())
+    klat = find_closest(koeppen.lat, lat)
+    klon = find_closest(koeppen.lon, lon)
+    koeppen_class.append(koeppen.sel(lon=klon, lat=klat).values.item())
 df['koeppen_class'] = koeppen_class
 station_coords.to_csv(f'{largefilepath}station_info_grid.csv')
 

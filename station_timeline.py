@@ -5,6 +5,8 @@ number of stations per year vs prediction uncertainty and error
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import cartopy.crs as ccrs
 import xarray as xr
 
 largefilepath = '/net/so4/landclim/bverena/large_files/'
@@ -25,11 +27,20 @@ no_stations = []
 for year in np.arange(1950,2021):
     no_stations.append(((year >= start_year) & (year <= end_year)).sum())
 
-import cartopy.crs as ccrs
 proj = ccrs.PlateCarree()
 no_years = []
 for start, end in zip(stations.start, stations.end):
     no_years.append(pd.date_range(start,end,freq='y').shape[0])
+
+# plot 3D lat lon time plot!
+pltarr = xr.full_like(variable['e'], 0)
+for lat, lon, start, end in zip(stations_grid_lat, stations_grid_lon, stations_start, stations_end):
+    pltarr.loc[slice(start,end),lat,lon] = 1
+fig = plt.figure()
+z,x,y = pltarr.values.nonzero()
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(x, y, -z, zdir='z', c= 'red')
+plt.show()
 
 # plot statistcs on stations
 fig = plt.figure(figsize=(10,5))
@@ -48,7 +59,7 @@ plt.colorbar(sc)
 ax3.scatter(stations.lon,stations.lat, c=end_year, cmap='Greens', s=0.5, vmin=1950, vmax=2021)
 plt.show()
 
-# get values per year
+# plot timeline of number of stations and prediction
 pred = f'{largefilepath}RFpred_{case}.nc'
 orig = f'{largefilepath}ERA5_{case}.nc'
 unc = f'{largefilepath}UncPred_{case}.nc'
@@ -59,13 +70,11 @@ unc = xr.open_dataarray(unc)
 unc = unc.mean(dim=('lat','lon'))
 pred = pred.mean(dim=('lat','lon'))
 
-# add missing years
 unc_t = np.zeros(len(no_stations))
 pre_t = np.zeros(len(no_stations))
 unc_t[29:65] = unc.values
 pre_t[29:65] = pred.values
 
-# plot
 fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5,5))
 # TODO plot this per area or koeppen 
 ax.plot(no_stations)
