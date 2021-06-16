@@ -25,30 +25,46 @@ gridarea = gridarea['cell_area']
 # then: add all lat lon arguments in console via ncatted -a long_name,lat,a,c,"latitude" lsmkoeppen.nc etc
 # then use cdo gridarea lsmkoeppen.nc gridarea_koeppen0p083.nc
 
-# optional: aggregate koeppen classes to first two letters
-koeppen_reduced = xr.full_like(koeppen, np.nan)
-k_reduced = [0,1,2,3,4,4,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,10,10,10,10,11,11,11,11,12,13]
-kdict = dict(zip(range(31),k_reduced))
-for i in range(31):
-   koeppen_reduced = koeppen_reduced.where(koeppen != i, kdict[i]) 
-koeppen_reduced.plot()
-koeppen = koeppen_reduced
-klist = np.unique(koeppen.values).tolist()
-
 # open station locations
 stations = pd.read_csv(largefilepath + 'station_info_grid.csv')
 
+# optional: aggregate koeppen classes to first two letters
+koeppen_reduced = xr.full_like(koeppen, np.nan)
+k_reduced = [0,1,2,3,4,4,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,10,10,10,10,11,11,11,11,12,13]
+reduced_names = ['Ocean','Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df','ET','EF']
+kdict = dict(zip(range(31),k_reduced))
+for i in range(31):
+   koeppen_reduced = koeppen_reduced.where(koeppen != i, kdict[i]) 
+koeppen = koeppen_reduced
+klist = np.unique(koeppen.values).tolist()
+#stations_koeppen_class = stations.koeppen_class # all classes
+stations_koeppen_class = []
+for s, station in stations.iterrows():
+    stations_koeppen_class.append(kdict[station.koeppen_class])
+stations_koeppen_class = np.array(stations_koeppen_class)
+
 # count grid points per koeppen classe
 koeppen_station_density = []
+koeppen_station_number = []
 for i in klist:
-    n_stations = (stations.koeppen_class == i).sum()
+    n_stations = (stations_koeppen_class == i).sum()
     area = gridarea.where(koeppen == i).sum().values.item() / (1000 * 1e9) # unit bio square km
-    koeppen_station_density.append(n_stations / area) # unit stations per bio square km
+    koeppen_station_density.append(float(n_stations) / area) # unit stations per bio square km
+    koeppen_station_number.append(float(n_stations)) # unitless 
+    print(reduced_names[i], n_stations, area)
 
 # plot station density per koeppen climate map
 density = xr.full_like(koeppen, np.nan)
 for i in klist:
     density = density.where(koeppen != i, koeppen_station_density[i])
+    #proj = ccrs.PlateCarree()
+    #fig = plt.figure(figsize=(10,10))
+    #ax1 = fig.add_subplot(111, projection=proj)
+    #density.where(koeppen != i, koeppen_station_density[i]).plot(ax=ax1)
+    #ax1.scatter(stations.lon, stations.lat, marker='x', s=5, c='indianred', transform=proj)
+    #ax1.set_title(f'{reduced_names[i]} {koeppen_station_number[i]}')
+    #plt.show()
+
 
 # plot
 legend = pd.read_csv('koeppen_legend.txt', delimiter=';')
@@ -59,15 +75,16 @@ ax2 = fig.add_subplot(132, projection=proj)
 ax3 = fig.add_subplot(133)
 koeppen.plot(ax=ax1, add_colorbar=False, cmap='terrain', transform=proj)
 ax1.scatter(stations.lon, stations.lat, marker='x', s=5, c='indianred', transform=proj)
-density.plot(ax=ax2, add_colorbar=False, cmap='hot_r', transform=proj)
+density.plot(ax=ax2, add_colorbar=True, cmap='Greens', transform=proj, vmin=0, vmax=80)
+#ax2.scatter(stations.lon, stations.lat, marker='x', s=5, c='indianred', transform=proj)
 ax1.set_title('koeppen climate classes and ISMN stations')
 ax2.set_title('station density per koeppen class \n[stations per billion km^2]')
 ax1.coastlines()
 ax2.coastlines()
 ax3.bar(klist, koeppen_station_density)
 #ax3.hist(koeppen_class, bins=np.arange(30), align='left')
-ax3.set_xticks(np.arange(30))
-ax3.set_xticklabels(legend.Short.values, rotation=90)
+ax3.set_xticks(np.arange(len(klist)))
+ax3.set_xticklabels(reduced_names, rotation=90)
 ax3.set_xlabel('koeppen climate classes')
 ax3.set_ylabel('station density \n[stations per billion km^2]')
 #plt.savefig('koeppen_worldmap.png')
