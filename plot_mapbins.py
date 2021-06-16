@@ -17,16 +17,19 @@ pred = f'{largefilepath}RFpred_{case}.nc'
 orig = f'{largefilepath}ERA5_{case}.nc'
 pred = xr.open_dataarray(pred)
 orig = xr.open_dataarray(orig)
-pred = (pred - orig).mean(dim='time')
 unc = f'{largefilepath}UncPred_{case}.nc'
 unc = xr.open_dataarray(unc)
-filename = f'{largefilepath}Beck_KG_V1_present_0p5.tif'
+filename = f'{largefilepath}Beck_KG_V1_present_0p083.tif'
 koeppen = xr.open_rasterio(filename)
 koeppen = koeppen.rename({'x':'lon','y':'lat'}).squeeze()
 
+# calculate rmse prediction error
+rmse = np.sqrt(((pred - orig)**2).mean(dim='time'))
+
+# regrid to koeppen grid
 regridder = xe.Regridder(unc, koeppen, 'bilinear', reuse_weights=False)
 unc = regridder(unc)
-pred = regridder(pred)
+rmse = regridder(rmse)
 
 # open station locations
 stations = pd.read_csv(largefilepath + 'station_info_grid.csv')
@@ -48,7 +51,7 @@ klist = np.unique(koeppen.values).tolist()
 
 # data for boxplot per koeppen
 mean_unc = []
-mean_pred = []
+mean_rmse = []
 no_stations = []
 for i in klist:
 
@@ -57,16 +60,16 @@ for i in klist:
     #boxplot_unc.append(tmp)
     mean_unc.append(np.abs(tmp.mean()))
 
-    tmp = pred.where(koeppen == i).values.flatten()
+    tmp = rmse.where(koeppen == i).values.flatten()
     tmp = tmp[~np.isnan(tmp)]
     #boxplot_unc.append(tmp)
-    mean_pred.append(np.abs(tmp.mean()))
+    mean_rmse.append(np.abs(tmp.mean()))
 
     no_stations.append((np.array(koeppen_class) == i).sum())
 
 # remove ocean
 labels = reduced_names
-mean_pred = mean_pred[1:]
+mean_rmse = mean_rmse[1:]
 mean_unc = mean_unc[1:]
 no_stations = no_stations[1:]
 labels = labels[1:]
@@ -74,14 +77,14 @@ labels = labels[1:]
 legend = pd.read_csv('koeppen_legend.txt', delimiter=';')
 fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(15,5))
 fig.suptitle('koeppen climate classes')
-ax[0].scatter(mean_pred, mean_unc, c='blue')
+ax[0].scatter(mean_rmse, mean_unc, c='blue')
 ax[1].scatter(no_stations, mean_unc, c='blue')
-ax[2].scatter(no_stations, mean_pred, c='blue')
-for i,(x,y) in enumerate(zip(mean_pred,mean_unc)):
+ax[2].scatter(no_stations, mean_rmse, c='blue')
+for i,(x,y) in enumerate(zip(mean_rmse,mean_unc)):
     ax[0].annotate(labels[i], xy=(x,y))
 for i,(x,y) in enumerate(zip(no_stations,mean_unc)):
     ax[1].annotate(labels[i], xy=(x,y))
-for i,(x,y) in enumerate(zip(no_stations,mean_pred)):
+for i,(x,y) in enumerate(zip(no_stations,mean_rmse)):
     ax[2].annotate(labels[i], xy=(x,y))
 ax[0].set_ylabel('mean prediction uncertainty')
 ax[0].set_xlabel('mean prediction error')
@@ -89,5 +92,5 @@ ax[1].set_ylabel('mean prediction uncertainty')
 ax[1].set_xlabel('number of stations')
 ax[2].set_ylabel('mean prediction error')
 ax[2].set_xlabel('number of stations')
-#plt.show()
-plt.savefig(f'scatter_{case}.png')
+plt.show()
+#plt.savefig(f'scatter_{case}.png')
