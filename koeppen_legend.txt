@@ -1,4 +1,5 @@
 No;Short;Long;Color
+0;  Ocean;    Ocean                                ; [0 0 0]
 1;  Af;   Tropical, rainforest                 ; [0 0 255]
 2;  Am;   Tropical, monsoon                    ; [0 120 255]
 3;  Aw;   Tropical, savannah                   ; [70 170 250]
