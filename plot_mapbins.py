@@ -8,6 +8,8 @@ import pandas as pd
 import xarray as xr
 import xesmf as xe
 
+# TODO remove ET and EF because of definition of soil moisture in frozen ground?
+
 # open data map
 case = 'latlontime'
 largefilepath = '/net/so4/landclim/bverena/large_files/'
@@ -27,31 +29,28 @@ unc = regridder(unc)
 pred = regridder(pred)
 
 # open station locations
-station_coords = np.load(largefilepath + 'ISMN_station_locations.npy', allow_pickle=True)
-stations_lat = station_coords[:,0]
-stations_lon = station_coords[:,1]
+stations = pd.read_csv(largefilepath + 'station_info_grid.csv')
 
-# interpolate station locations on koeppen grid
-datalat, datalon = koeppen.lat.values, koeppen.lon.values
-def find_closest(list_of_values, number):
-    return min(list_of_values, key=lambda x:abs(x-number))
-station_grid_lat = []
-station_grid_lon = []
-for lat, lon in zip(stations_lat,stations_lon):
-    station_grid_lat.append(find_closest(datalat, lat))
-    station_grid_lon.append(find_closest(datalon, lon))
+# calculate reduced koeppen classes
+k_reduced = [0,1,2,3,4,4,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,10,10,10,10,11,11,11,11,12,13]
+reduced_names = ['Ocean','Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df','ET','EF']
+kdict = dict(zip(range(31),k_reduced))
+stations_koeppen_class = []
+for s, station in stations.iterrows():
+    stations_koeppen_class.append(kdict[station.koeppen_class])
+koeppen_class = np.array(stations_koeppen_class)
 
-# extract koeppen class of station location
-koeppen_class = []
-for lat, lon in zip(station_grid_lat,station_grid_lon):
-    koeppen_class.append(koeppen.sel(lon=lon, lat=lat).values.item())
-koeppen_data = np.unique(koeppen_class, return_counts=True)[1]
+koeppen_reduced = xr.full_like(koeppen, np.nan)
+for i in range(31):
+   koeppen_reduced = koeppen_reduced.where(koeppen != i, kdict[i]) 
+koeppen = koeppen_reduced
+klist = np.unique(koeppen.values).tolist()
 
 # data for boxplot per koeppen
 mean_unc = []
 mean_pred = []
 no_stations = []
-for i in range(30):
+for i in klist:
 
     tmp = unc.where(koeppen == i).values.flatten()
     tmp = tmp[~np.isnan(tmp)]
@@ -65,18 +64,23 @@ for i in range(30):
 
     no_stations.append((np.array(koeppen_class) == i).sum())
 
+# remove ocean
+labels = reduced_names
+mean_pred = mean_pred[1:]
+mean_unc = mean_unc[1:]
+no_stations = no_stations[1:]
+labels = labels[1:]
+
 legend = pd.read_csv('koeppen_legend.txt', delimiter=';')
-labels = legend.Short.values
 fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(15,5))
 fig.suptitle('koeppen climate classes')
 ax[0].scatter(mean_pred, mean_unc, c='blue')
-#plt.scatter(no_stations, mean_pred, c='red')
+ax[1].scatter(no_stations, mean_unc, c='blue')
+ax[2].scatter(no_stations, mean_pred, c='blue')
 for i,(x,y) in enumerate(zip(mean_pred,mean_unc)):
     ax[0].annotate(labels[i], xy=(x,y))
-ax[1].scatter(no_stations, mean_unc, c='blue')
 for i,(x,y) in enumerate(zip(no_stations,mean_unc)):
     ax[1].annotate(labels[i], xy=(x,y))
-ax[2].scatter(no_stations, mean_pred, c='blue')
 for i,(x,y) in enumerate(zip(no_stations,mean_pred)):
     ax[2].annotate(labels[i], xy=(x,y))
 ax[0].set_ylabel('mean prediction uncertainty')
@@ -85,27 +89,5 @@ ax[1].set_ylabel('mean prediction uncertainty')
 ax[1].set_xlabel('number of stations')
 ax[2].set_ylabel('mean prediction error')
 ax[2].set_xlabel('number of stations')
+#plt.show()
 plt.savefig(f'scatter_{case}.png')
-
-quit()
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10,10))
-ax.boxplot(boxplot_data)
-ax.set_xticks(np.arange(30))
-ax.set_xticklabels(legend.Short.values, rotation=90)
-plt.show()
-
-# plot
-import IPython; IPython.embed()
-fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(20,10))
-data.plot(ax=ax[0], add_colorbar=False, cmap='terrain')
-ax[0].set_title('prediction error')
-ax[0].set_xticklabels('')
-ax[0].set_yticklabels('')
-ax[0].scatter(stations_lon, stations_lat, marker='x', s=5, c='indianred')
-
-ax[1].hist(data_class, bins=np.arange(30), align='left')
-ax[1].set_xticks(np.arange(30))
-ax[1].set_xticklabels(legend.Short.values, rotation=90)
-ax[1].set_xlabel('koeppen climate classes')
-ax[1].set_ylabel('number of stations')
-plt.savefig('data_ismn.png')

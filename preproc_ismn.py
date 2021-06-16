@@ -10,6 +10,8 @@ import pandas as pd
 
 # TODO add vegetation of each station
 # TODO use Martins apporach (see Email)
+# TODO remove stations that are placed in ocean koeppen class
+# TODO add reduced koeppen class
 
 ismnpath = '/net/exo/landclim/data/variable/soil-moisture/ISMN/20210211/point-scale_none_0.5h/original/'
 largefilepath = '/net/so4/landclim/bverena/large_files/'

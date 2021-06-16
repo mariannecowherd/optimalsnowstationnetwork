@@ -87,8 +87,8 @@ ax3.set_xticks(np.arange(len(klist)))
 ax3.set_xticklabels(reduced_names, rotation=90)
 ax3.set_xlabel('koeppen climate classes')
 ax3.set_ylabel('station density \n[stations per billion km^2]')
-#plt.savefig('koeppen_worldmap.png')
-plt.show()
+plt.savefig('koeppen_worldmap.png')
+#plt.show()
 
 
 # plot hist
