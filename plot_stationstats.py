@@ -65,29 +65,3 @@ sc = ax3.scatter(stations.lon,stations.lat, c=end_year, cmap='Greens', s=0.5, vm
 plt.colorbar(sc, ax=ax3)
 plt.show()
 
-# plot timeline of number of stations and prediction
-pred = f'{largefilepath}RFpred_{case}.nc'
-orig = f'{largefilepath}ERA5_{case}.nc'
-unc = f'{largefilepath}UncPred_{case}.nc'
-pred = xr.open_dataarray(pred)
-orig = xr.open_dataarray(orig)
-pred = (pred - orig)
-unc = xr.open_dataarray(unc)
-unc = unc.mean(dim=('lat','lon'))
-pred = pred.mean(dim=('lat','lon'))
-
-unc_t = np.zeros(len(no_stations))
-pre_t = np.zeros(len(no_stations))
-unc_t[29:65] = unc.values
-pre_t[29:65] = pred.values
-
-fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5,5))
-# TODO plot this per area or koeppen 
-ax.plot(no_stations)
-ax.plot(unc_t*1000)
-ax.plot(pre_t*1000)
-ax.set_xticks(np.arange(0,80,10))
-ax.set_xticklabels(np.arange(1950,2030,10))
-ax.set_xlabel('year')
-ax.set_ylabel('number of stations')
-plt.show()
