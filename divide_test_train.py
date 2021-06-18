@@ -8,14 +8,6 @@ import pandas as pd
 import xarray as xr
 
 # TODO add extremes, trends
-# save means in file
-#years = list(np.arange(1979,2020))
-#largefilepath = '/net/so4/landclim/bverena/large_files/'
-#era5path_variant = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_1m/processed/regrid/'
-#varnames = ['t2m','skt','tp','swvl1','swvl2','swvl3','swvl4','e','ro','sshf','slhf','ssr','str']
-#filenames_var = [f'{era5path_variant}era5_deterministic_recent.{varname}.025deg.1m.{year}.nc' for year in years for varname in varnames]
-#data = xr.open_mfdataset(filenames_var, combine='by_coords')
-#data.mean(dim='time').to_netcdf(largefilepath + 'era5_deterministic_recent.var.025deg.1m.mean.nc')
 
 # load feature space X
 print('load and stack data')
@@ -37,7 +29,6 @@ variable = variable.isel(lon=xr.DataArray(landlon, dims='landpoints'),
                          lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
 constant['latdat'] = ('landpoints', constant.lat.values)
 constant['londat'] = ('landpoints', constant.lon.values)
-#constant = constant.squeeze()
 
 # stack constant maps and merge with variables
 ntimesteps = variable.coords['time'].size # TODO use climfill package
@@ -54,8 +45,7 @@ stations_grid_lon= station_coords.lon_grid.values
 stations_start = [datetime.strptime(date, '%Y-%m-%d %M:%S:%f') for date in station_coords.start.values]
 stations_end = [datetime.strptime(date, '%Y-%m-%d %M:%S:%f') for date in station_coords.end.values]
 
-#station_coords.to_csv(f'{largefilepath}station_info_grid.csv')
-# this would be easier for slicing, but we cannot split data into test and train before
+# using sel would be easier for slicing, but we cannot split data into test and train before
 # creating dimension datapoints because reindexing to worldmap would fail if test and train
 # are not merged again after learning
 
@@ -69,21 +59,6 @@ data = xr.open_mfdataset(filenames)
 data = data.resample(time='1y').mean().to_array().mean(dim='variable')
 data = data.isel(lon=xr.DataArray(landlon, dims='landpoints'),
                  lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
-
-## divide era5 gridpoints into those w station and those without
-#print('calculate landpoints of stations')
-#lat_landpoints = data.lat.values
-#lon_landpoints = data.lon.values
-#selected_landpoints = []
-#for lat, lon in zip(stations_grid_lat,stations_grid_lon):
-#    try:
-#        selected_landpoints.append(np.intersect1d(np.where(lat_landpoints == lat), np.where(lon_landpoints == lon))[0])
-#    except IndexError as e: # station in the ocean acc to era5 landmask
-#        pass
-#selected_landpoints = np.unique(selected_landpoints) # some era5 gridpoints contain more than two stations
-#other_landpoints = np.arange(data.landpoints.shape[0]).tolist()
-#for pt in selected_landpoints:
-#    other_landpoints.remove(pt)
 
 # stack along time axis
 print('stack and normalise')
@@ -122,22 +97,8 @@ y_test = data.where(~data.datapoints.isin(y_train_datacoords), drop=True)
 X_train = variable.where(data.datapoints.isin(y_train_datacoords), drop=True)
 X_test = variable.where(~data.datapoints.isin(y_train_datacoords), drop=True)
 
-#y_train = data.where(data.landpoints.isin(selected_landpoints), drop=True)
-#y_test = data.where(data.landpoints.isin(other_landpoints), drop=True)
-#X_train = variable.where(variable.landpoints.isin(selected_landpoints), drop=True)
-#x_test = variable.where(variable.landpoints.isin(other_landpoints), drop=True)
-
-# define data for learning and save
-#import IPython; IPython.embed()
-#y_train = data.sel(landpoints=selected_landpoints)
-#X_train = variable.sel(landpoints=selected_landpoints).to_array()
-#y_test = data.sel(landpoints=other_landpoints)
-#X_test = variable.sel(landpoints=other_landpoints).to_array()
-
 # save to file
 X_train.to_netcdf(f'{largefilepath}X_train_{case}.nc')
 y_train.to_netcdf(f'{largefilepath}y_train_{case}.nc')
 X_test.to_netcdf(f'{largefilepath}X_test_{case}.nc')
 y_test.to_netcdf(f'{largefilepath}y_test_{case}.nc')
-np.array(station_grid_lat).dump(f'{largefilepath}station_grid_lat.npy')
-np.array(station_grid_lon).dump(f'{largefilepath}station_grid_lon.npy')
