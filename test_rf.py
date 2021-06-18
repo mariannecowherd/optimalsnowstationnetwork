@@ -27,8 +27,6 @@ X_train = xr.open_dataarray(f'{largefilepath}X_train_{case}.nc')
 y_train = xr.open_dataarray(f'{largefilepath}y_train_{case}.nc')
 X_test = xr.open_dataarray(f'{largefilepath}X_test_{case}.nc')
 y_test = xr.open_dataarray(f'{largefilepath}y_test_{case}.nc')
-station_grid_lat = np.load(f'{largefilepath}station_grid_lat.npy', allow_pickle=True)
-station_grid_lon = np.load(f'{largefilepath}station_grid_lon.npy', allow_pickle=True)
 
 # normalise values
 datamean = y_train.mean().values.copy()
@@ -37,11 +35,11 @@ y_train = (y_train - datamean) / datastd
 y_test = (y_test - datamean) / datastd
 
 # train RF on observed points 
-n_trees = 100
+n_trees = 500
 kwargs = {'n_estimators': n_trees,
           'min_samples_leaf': 2,
-          'max_features': 0.5, 
-          'max_samples': 0.5, 
+          'max_features': 'auto', 
+          'max_samples': None, 
           'bootstrap': True,
           'warm_start': True,
           'n_jobs': None, # set to number of trees
