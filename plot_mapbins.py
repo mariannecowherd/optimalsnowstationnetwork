@@ -38,10 +38,7 @@ stations = pd.read_csv(largefilepath + 'station_info_grid.csv')
 k_reduced = [0,1,2,3,4,4,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,10,10,10,10,11,11,11,11,12,13]
 reduced_names = ['Ocean','Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df','ET','EF']
 kdict = dict(zip(range(31),k_reduced))
-stations_koeppen_class = []
-for s, station in stations.iterrows():
-    stations_koeppen_class.append(kdict[station.koeppen_class])
-koeppen_class = np.array(stations_koeppen_class)
+koeppen_class = stations.simplified_koeppen_class
 
 koeppen_reduced = xr.full_like(koeppen, np.nan)
 for i in range(31):
@@ -53,6 +50,8 @@ klist = np.unique(koeppen.values).tolist()
 mean_unc = []
 mean_rmse = []
 no_stations = []
+station_density = []
+density = xr.open_dataset(f'{largefilepath}koeppen_station_density.nc')['data']
 for i in klist:
 
     tmp = unc.where(koeppen == i).values.flatten()
@@ -66,12 +65,14 @@ for i in klist:
     mean_rmse.append(np.median(tmp))
 
     no_stations.append((np.array(koeppen_class) == i).sum())
+    station_density.append(density.where(koeppen == i).mean().item())
 
 # remove ocean
 labels = reduced_names
 mean_rmse = mean_rmse[1:]
 mean_unc = mean_unc[1:]
 no_stations = no_stations[1:]
+station_density = station_density[1:]
 labels = labels[1:]
 
 # remove frozen soil
@@ -79,23 +80,24 @@ labels = labels[:-2]
 mean_rmse = mean_rmse[:-2]
 mean_unc = mean_unc[:-2]
 no_stations = no_stations[:-2]
+station_density = station_density[:-2]
 
 fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(15,5))
 fig.suptitle('koeppen climate classes')
 ax[0].scatter(mean_rmse, mean_unc, c='blue')
-ax[1].scatter(no_stations, mean_unc, c='blue')
-ax[2].scatter(no_stations, mean_rmse, c='blue')
+ax[1].scatter(station_density, mean_unc, c='blue')
+ax[2].scatter(station_density, mean_rmse, c='blue')
 for i,(x,y) in enumerate(zip(mean_rmse,mean_unc)):
     ax[0].annotate(labels[i], xy=(x,y))
-for i,(x,y) in enumerate(zip(no_stations,mean_unc)):
+for i,(x,y) in enumerate(zip(station_density,mean_unc)):
     ax[1].annotate(labels[i], xy=(x,y))
-for i,(x,y) in enumerate(zip(no_stations,mean_rmse)):
+for i,(x,y) in enumerate(zip(station_density,mean_rmse)):
     ax[2].annotate(labels[i], xy=(x,y))
 ax[0].set_ylabel('mean prediction uncertainty')
 ax[0].set_xlabel('mean prediction RMSE')
 ax[1].set_ylabel('mean prediction uncertainty')
-ax[1].set_xlabel('number of stations')
+ax[1].set_xlabel('station density [stations per bio km^2]')
 ax[2].set_ylabel('mean prediction RMSE')
-ax[2].set_xlabel('number of stations')
-#plt.show()
-plt.savefig(f'scatter_{case}.png')
+ax[2].set_xlabel('station density [stations per bio km^2]')
+plt.show()
+#plt.savefig(f'scatter_{case}.png')
