@@ -58,12 +58,12 @@ for i in klist:
     tmp = unc.where(koeppen == i).values.flatten()
     tmp = tmp[~np.isnan(tmp)]
     #boxplot_unc.append(tmp)
-    mean_unc.append(np.abs(tmp.mean()))
+    mean_unc.append(np.median(tmp))
 
     tmp = rmse.where(koeppen == i).values.flatten()
     tmp = tmp[~np.isnan(tmp)]
     #boxplot_unc.append(tmp)
-    mean_rmse.append(np.abs(tmp.mean()))
+    mean_rmse.append(np.median(tmp))
 
     no_stations.append((np.array(koeppen_class) == i).sum())
 
@@ -74,7 +74,12 @@ mean_unc = mean_unc[1:]
 no_stations = no_stations[1:]
 labels = labels[1:]
 
-legend = pd.read_csv('koeppen_legend.txt', delimiter=';')
+# remove frozen soil
+labels = labels[:-2]
+mean_rmse = mean_rmse[:-2]
+mean_unc = mean_unc[:-2]
+no_stations = no_stations[:-2]
+
 fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(15,5))
 fig.suptitle('koeppen climate classes')
 ax[0].scatter(mean_rmse, mean_unc, c='blue')
@@ -87,10 +92,10 @@ for i,(x,y) in enumerate(zip(no_stations,mean_unc)):
 for i,(x,y) in enumerate(zip(no_stations,mean_rmse)):
     ax[2].annotate(labels[i], xy=(x,y))
 ax[0].set_ylabel('mean prediction uncertainty')
-ax[0].set_xlabel('mean prediction error')
+ax[0].set_xlabel('mean prediction RMSE')
 ax[1].set_ylabel('mean prediction uncertainty')
 ax[1].set_xlabel('number of stations')
-ax[2].set_ylabel('mean prediction error')
+ax[2].set_ylabel('mean prediction RMSE')
 ax[2].set_xlabel('number of stations')
-plt.show()
-#plt.savefig(f'scatter_{case}.png')
+#plt.show()
+plt.savefig(f'scatter_{case}.png')
