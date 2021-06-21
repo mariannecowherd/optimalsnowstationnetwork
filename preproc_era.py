@@ -40,7 +40,7 @@ data_roll = data.rolling(time=3, center=False, min_periods=1).mean()
 data_max = data_max.rename({'skt':'sktmax','t2m':'t2mmax'})
 data_min = data_min.rename({'skt':'sktmin','t2m':'t2mmin'})
 data_sum = data_sum.rename({'e':'esum','tp':'tpsum'})
-data_roll = data_roll.assign_coords(variable=[f'{var}roll' for var in varnames])
+data_roll = data_roll.to_array(dim='variable').assign_coords(variable=[f'{var}roll' for var in varnames]).to_dataset('variable')
 
 # downsample to yearly resolution
 data = data.resample(time='1y').mean()
