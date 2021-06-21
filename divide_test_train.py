@@ -18,6 +18,7 @@ filenames_constant = [f'{era5path_invariant}era5_deterministic_recent.{varname}.
 filenames_variable = [f'{largefilepath}era5_deterministic_recent.temp.025deg.1y.max.nc', 
                      f'{largefilepath}era5_deterministic_recent.temp.025deg.1y.min.nc',
                      f'{largefilepath}era5_deterministic_recent.var.025deg.1y.mean.nc',
+                     f'{largefilepath}era5_deterministic_recent.var.025deg.1y.roll.nc',
                      f'{largefilepath}era5_deterministic_recent.precip.025deg.1y.sum.nc']
 constant = xr.open_mfdataset(filenames_constant, combine='by_coords').load()
 variable = xr.open_mfdataset(filenames_variable, combine='by_coords').load()
