@@ -64,6 +64,8 @@ for i in klist:
     #ax1.scatter(stations.lon, stations.lat, marker='x', s=5, c='indianred', transform=proj)
     #ax1.set_title(f'{reduced_names[i]} {koeppen_station_number[i]}')
     #plt.show()
+density = density.to_dataset(name='data')
+density.to_netcdf(f'{largefilepath}koeppen_station_density.nc')
 
 
 # plot
