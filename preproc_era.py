@@ -34,7 +34,7 @@ data_min = xr.open_mfdataset(filenames_min, combine='by_coords').drop('time_bnds
 data_sum = xr.open_mfdataset(filenames_sum, combine='by_coords')
 
 # 3-month and 6-month rolling means backwards
-data_roll = data.rolling(time=3, center=False, min_periods=1).mean()
+data_roll = data.rolling(time=6, center=False, min_periods=1).mean()
 
 # rename variables
 data_max = data_max.rename({'skt':'sktmax','t2m':'t2mmax'})
@@ -43,15 +43,16 @@ data_sum = data_sum.rename({'e':'esum','tp':'tpsum'})
 data_roll = data_roll.to_array(dim='variable').assign_coords(variable=[f'{var}roll' for var in varnames]).to_dataset('variable')
 
 # downsample to yearly resolution
-data = data.resample(time='1y').mean()
-data_roll = data_roll.resample(time='1y').mean()
-data_max = data_max.resample(time='1y').max()
-data_min = data_min.resample(time='1y').min()
-data_sum = data_sum.resample(time='1y').sum()
+freq = '1m'
+data = data.resample(time=freq).mean()
+data_roll = data_roll.resample(time=freq).mean()
+data_max = data_max.resample(time=freq).max()
+data_min = data_min.resample(time=freq).min()
+data_sum = data_sum.resample(time=freq).sum()
 
 # save to netcdf
-data.to_netcdf(largefilepath + 'era5_deterministic_recent.var.025deg.1y.mean.nc')
-data_roll.to_netcdf(largefilepath + 'era5_deterministic_recent.var.025deg.1y.roll.nc')
-data_max.to_netcdf(largefilepath + 'era5_deterministic_recent.temp.025deg.1y.max.nc')
-data_min.to_netcdf(largefilepath + 'era5_deterministic_recent.temp.025deg.1y.min.nc')
-data_sum.to_netcdf(largefilepath + 'era5_deterministic_recent.precip.025deg.1y.sum.nc')
+data.to_netcdf(largefilepath + f'era5_deterministic_recent.var.025deg.{freq}.mean.nc')
+data_roll.to_netcdf(largefilepath + f'era5_deterministic_recent.var.025deg.{freq}.roll.nc')
+data_max.to_netcdf(largefilepath + f'era5_deterministic_recent.temp.025deg.{freq}.max.nc')
+data_min.to_netcdf(largefilepath + f'era5_deterministic_recent.temp.025deg.{freq}.min.nc')
+data_sum.to_netcdf(largefilepath + f'era5_deterministic_recent.precip.025deg.{freq}.sum.nc')
