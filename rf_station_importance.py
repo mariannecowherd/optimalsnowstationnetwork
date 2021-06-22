@@ -55,8 +55,8 @@ all_stations = np.unique(y.landpoints.values)
 i = 0
 lat = []
 lon = []
-for landpoint in all_stations:
-    print(f'landpoint {landpoint}')
+for l, landpoint in enumerate(all_stations):
+    print(f'landpoint {l} out of {len(all_stations)}')
     y_train = y.where(y.landpoints != landpoint, drop=True)
     y_test = y.where(y.landpoints == landpoint, drop=True)
 
@@ -79,7 +79,7 @@ for landpoint in all_stations:
     lat.append(y[y.landpoints == landpoint].lat.values[0])
     lon.append(y[y.landpoints == landpoint].lon.values[0])
     i += 1
-    #if i > 10:
+    #if i > 20:
     #    break
 
 # stack to landpoints
@@ -89,6 +89,13 @@ y = y.set_index(datapoints=('time', 'landpoints')).unstack('datapoints')
 rmse = np.sqrt(((y - y_predict)**2).mean(dim='time'))
 munc = y_unc.mean(dim='time') 
 lat, lon = y.lat.mean(dim='time'), y.lon.mean(dim='time')
+
+# save data
+rmse.to_netcdf(f'{largefilepath}rmse_station_importance.nc')
+munc.to_netcdf(f'{largefilepath}munc_station_importance.nc')
+lat.to_netcdf(f'{largefilepath}lat_station_importance.nc')
+lon.to_netcdf(f'{largefilepath}lon_station_importance.nc')
+import IPython; IPython.embed()
 
 # plot
 lsmfile = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/era5_deterministic_recent.lsm.025deg.time-invariant.nc'
@@ -106,7 +113,6 @@ ax2.scatter(lon, lat, c=munc, cmap='Reds')
 ax1.set_title('mean prediction RMSE between ERA5 and RF prediction')
 ax2.set_title('mean uncertainty of RF prediction (tree quantiles)')
 plt.show()
-import IPython; IPython.embed()
 
 
 
