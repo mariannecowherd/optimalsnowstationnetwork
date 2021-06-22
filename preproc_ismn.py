@@ -15,9 +15,13 @@ import pandas as pd
 # add reduced koeppen class; done
 # TODO see whether there are measurement gaps
 # started with: 
-# test = pd.read_csv(onefile, skiprows=1, header=None, delimiter='  ', engine='python')
-# test.iloc[:,0] = [datetime.strptime(date, '%Y/%m/%d %H:%M').date() for date in test.iloc[:,0]]
+# test = pd.read_csv(onefile, skiprows=1, header=None, delimiter='  ', engine='python', parse_dates=[0])
 # test.columns = ['date','value']
+# test = test.set_index('date')
+## test.iloc[:,0] = [datetime.strptime(date, '%Y/%m/%d %H:%M').date() for date in test.iloc[:,0]]
+## test.iloc[:,1] = [float(value.split(' ')[1]) for value in test.iloc[:,1]]
+# test.value = [float(value.split(' ')[1]) for value in test.value]
+# test = test.resample('1m').mean()
 
 ismnpath = '/net/exo/landclim/data/variable/soil-moisture/ISMN/20210211/point-scale_none_0.5h/original/'
 largefilepath = '/net/so4/landclim/bverena/large_files/'
@@ -28,6 +32,8 @@ print('find all station information')
 index = range(2816)
 columns = ['lat','lon','start','end', 'land_cover_class']
 df = pd.DataFrame(index=index, columns=columns)
+daterange = pd.date_range(start='1979-01-01', end='2021-01-01', freq='1m')
+df_gaps = pd.DataFrame(index=daterange, columns=index)
 
 i = 0
 for folder in station_folders:
@@ -35,7 +41,7 @@ for folder in station_folders:
         onefile = glob.glob(f'{folder}*sm*.stm', recursive=True)[0]
     except IndexError: # list index out of range -> no .stm files in this directory
         continue # skip this directory
-    print(folder)
+    print(folder) # DEBUG
     with open(onefile, 'r') as f:
         lines = f.readlines()
     firstline = lines[0]
@@ -48,6 +54,18 @@ for folder in station_folders:
     df.lon[i] = lon
     df.start[i] = station_start
     df.end[i] = station_end
+
+    # get info on which months are measures per station
+    test = pd.read_csv(onefile, skiprows=1, header=None, # first line is not header
+                       delimiter=r'\s+', # delimiter any no of whitespaces 
+                       engine='python', # future warnung suppressed
+                       parse_dates=[0], # first row is dates convert to format
+                       error_bad_lines=False) # ignore all lines with more columns
+    test = test[[0,2]]
+    test.columns = ['date','value']
+    test = test.set_index('date')
+    test = test.resample('1m').mean()
+    df_gaps.loc[df_gaps.index.isin(test.index),i] = test.value
 
     # get metadata
     try:
@@ -63,6 +81,12 @@ for folder in station_folders:
 
     # counter
     i += 1
+
+# save as netcdf 
+df_gaps = xr.DataArray(df_gaps, dims=['time','stations'])
+df_gaps = df_gaps.assign_coords(lon=('stations',df.lon))
+df_gaps = df_gaps.assign_coords(lat=('stations',df.lat))
+df_gaps.to_netcdf(f'{largefilepath}df_gaps.nc')
 
 # interpolate station locations on era5 grid
 print('interpolate station locations on era5 grid')
