@@ -82,12 +82,6 @@ for folder in station_folders:
     # counter
     i += 1
 
-# save as netcdf 
-df_gaps = xr.DataArray(df_gaps, dims=['time','stations'])
-df_gaps = df_gaps.assign_coords(lon=('stations',df.lon))
-df_gaps = df_gaps.assign_coords(lat=('stations',df.lat))
-df_gaps.to_netcdf(f'{largefilepath}df_gaps.nc')
-
 # interpolate station locations on era5 grid
 print('interpolate station locations on era5 grid')
 filepath = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/'
@@ -131,3 +125,12 @@ df = df[df.koeppen_class != 0]
 # save
 print(df.head())
 df.to_csv(f'{largefilepath}station_info_grid.csv')
+
+# save as netcdf 
+df_gaps = xr.DataArray(df_gaps, dims=['time','stations'])
+df_gaps = df_gaps.assign_coords(lon=('stations',df.lon))
+df_gaps = df_gaps.assign_coords(lat=('stations',df.lat))
+df_gaps = df_gaps.assign_coords(lon_grid=('stations',df.lon_grid))
+df_gaps = df_gaps.assign_coords(lat_grid=('stations',df.lat_grid))
+df_gaps.to_netcdf(f'{largefilepath}df_gaps.nc')
+
