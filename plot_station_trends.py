@@ -2,18 +2,44 @@ import numpy as np
 import xarray as xr
 from scipy import stats
 import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
 
 # no overall pattern visible in trends, no overall trend visible
 # could be due to errors in preprocessing (values different units?)
 # could be due to short timespan of data
-# could be because no trend is emerging yet
+# could be because no trend is emerging yet # check this option by comparing with era5
+
 
 def _calc_slope(x, y):
     '''wrapper that returns the slop from a linear regression fit of x and y'''
     slope = stats.linregress(x, y)[0]  # extract slope only
     return slope
 
+def linear_trend(obj):
+    time_nums = xr.DataArray(obj['time'].values.astype(float),
+                             dims='time',
+                             coords={'time': obj['time']},
+                           name='time_nums')
+    trend = xr.apply_ufunc(_calc_slope, time_nums, obj,
+                           vectorize=True,
+                           input_core_dims=[['time'], ['time']],
+                           output_core_dims=[[]],
+                           output_dtypes=[float],
+                           dask='parallelized')
+    return trend
+
 largefilepath = '/net/so4/landclim/bverena/large_files/'
+
+years = list(np.arange(1979,2015))
+varnames = ['swvl1','swvl2','swvl3','swvl4']
+era5path_variant = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_1m/processed/regrid/'
+filenames = [f'{era5path_variant}era5_deterministic_recent.{varname}.025deg.1m.{year}.nc' for year in years for varname in varnames]
+era5 = xr.open_mfdataset(filenames)
+era5 = era5.resample(time='1y').mean().to_array().mean(dim='variable')
+era5 = era5.load()
+era5 = (era5 - era5.mean(dim='time')) / era5.std(dim='time')
+trend = xr.full_like(era5[0,:,:].squeeze(), np.nan)
+trend = linear_trend(era5)
 
 data = xr.open_dataset(f'{largefilepath}df_gaps.nc')
 data = data['__xarray_dataarray_variable__']
@@ -40,5 +66,9 @@ for s in range(data.stations.shape[0]):
 ax.boxplot(trends[~np.isnan(trends)]) # no overall trend visible
 plt.show()
 
+proj = ccrs.PlateCarree()
+fig = plt.figure()
+ax = fig.add_subplot(111, projection=proj)
+trend.plot(ax=ax, cmap='coolwarm_r', vmin=-1, vmax=1)
 plt.scatter(data.lon, data.lat, c=trends, cmap='coolwarm_r', vmin=-1, vmax=1, s=1)
 plt.show()
