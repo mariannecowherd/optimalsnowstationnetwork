@@ -37,6 +37,7 @@ filenames = [f'{era5path_variant}era5_deterministic_recent.{varname}.025deg.1m.{
 era5 = xr.open_mfdataset(filenames)
 era5 = era5.resample(time='1y').mean().to_array().mean(dim='variable')
 era5 = era5.load()
+import IPython; IPython.embed()
 era5 = (era5 - era5.mean(dim='time')) / era5.std(dim='time')
 trend = xr.full_like(era5[0,:,:].squeeze(), np.nan)
 trend = linear_trend(era5)
