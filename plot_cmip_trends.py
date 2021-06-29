@@ -40,4 +40,7 @@ cmip = xr.open_mfdataset(f'{cmip6path}mrso*_ssp{ssp}{rcp}_*.nc', # shoyer says b
 cmip = cmip.to_array()
 
 # calculate MM trend
-mmm = cmip.mean(dim='variable')
+mmm = cmip.mean(dim='variable').load()
+trend = linear_trend(mmm)
+mmm.mean(dim=('lat','lon')).plot()
+trend.plot(cmap='coolwarm_r')
