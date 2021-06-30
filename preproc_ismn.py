@@ -120,10 +120,12 @@ for s, station in df.iterrows():
 df['simplified_koeppen_class'] = stations_koeppen_class
 
 # remove stations that are in ocean koeppen class
-df = df[df.koeppen_class != 0]
+#df_gaps = df_gaps.T[df.koeppen_class != 0].T # DEBUG TODO put in again
+#df = df[df.koeppen_class != 0]
 
 # save
 print(df.head())
+print(df_gaps.head())
 df.to_csv(f'{largefilepath}station_info_grid.csv')
 
 # save as netcdf 
@@ -132,5 +134,6 @@ df_gaps = df_gaps.assign_coords(lon=('stations',df.lon))
 df_gaps = df_gaps.assign_coords(lat=('stations',df.lat))
 df_gaps = df_gaps.assign_coords(lon_grid=('stations',df.lon_grid))
 df_gaps = df_gaps.assign_coords(lat_grid=('stations',df.lat_grid))
+df_gaps = df_gaps.assign_coords(koeppen=('stations',df.koeppen_class))
+df_gaps = df_gaps.assign_coords(koeppen_simple=('stations',df.simplified_koeppen_class))
 df_gaps.to_netcdf(f'{largefilepath}df_gaps.nc')
-
