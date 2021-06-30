@@ -8,6 +8,9 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+# TODO
+# save koeppen in all resolutiosn to nc and also simplified classes (6 nc files in total)
+
 # open koeppen map
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 filename = f'{largefilepath}Beck_KG_V1_present_0p083.tif'
