@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy import stats
+import xesmf as xe
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 
@@ -46,6 +47,7 @@ cmip = cmip.sortby('lon')
 
 # calculate MM trend
 mmm = cmip.mean(dim='variable').load()
+mmm = (mmm - mmm.mean(dim = 'time')) / mmm.std(dim='time')
 trend = linear_trend(mmm)
 #mmm.mean(dim=('lat','lon')).plot()
 #trend.plot(cmap='coolwarm_r')
@@ -81,4 +83,25 @@ fig = plt.figure()
 ax = fig.add_subplot(111)
 mmm.mean(dim=('lat','lon')).plot(ax=ax)
 stationdata.mean(dim='stations').plot(ax=ax)
+plt.show()
+
+# open koeppen and regrid mmm
+filename = f'{largefilepath}Beck_KG_V1_present_0p5.tif'
+koeppen = xr.open_rasterio(filename)
+koeppen = koeppen.rename({'x':'lon','y':'lat'}).squeeze()
+regridder = xe.Regridder(mmm, koeppen, 'bilinear', reuse_weights=False)
+mmm = regridder(mmm)
+
+# convert to simplified koeppen class
+k_reduced = [0,1,2,3,4,4,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,10,10,10,10,11,11,11,11,12,13]
+kdict = dict(zip(range(31),k_reduced))
+koeppen.values = np.vectorize(kdict.get)(koeppen.values)
+
+# plot trend per koeppen climate
+fig = plt.figure()
+ax = fig.add_subplot(111)
+reduced_names = ['Ocean','Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df','ET','EF']
+for k in range(1,12):
+    mmm.where(koeppen == k).mean(dim=('lat','lon')).plot(ax=ax)
+ax.legend(reduced_names[1:-2])
 plt.show()
