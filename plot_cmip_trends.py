@@ -59,6 +59,7 @@ def find_closest(list_of_values, number):
     return min(list_of_values, key=lambda x:abs(x-number))
 station_grid_lat = []
 station_grid_lon = []
+df = df[df.end > '2016-01-01'] # include only stations still running
 for lat, lon in zip(df.lat,df.lon):
     station_grid_lat.append(find_closest(mmm.lat.values, lat))
     station_grid_lon.append(find_closest(mmm.lon.values, lon))
@@ -67,6 +68,8 @@ coords_unique = np.unique(np.array([station_grid_lat, station_grid_lon]), axis=1
 stationdata = xr.DataArray(np.full((mmm.shape[0], coords_unique.shape[1]), np.nan),
                    coords=[mmm.coords['time'], range(coords_unique.shape[1])], 
                    dims=['time','stations'])
+stationdata = stationdata.assign_coords(lat=('stations',coords_unique[0,:]))
+stationdata = stationdata.assign_coords(lon=('stations',coords_unique[1,:]))
 for s in range(coords_unique.shape[1]):
     lat, lon = coords_unique[:,s]
     mmm.sel(lat=lat, lon=lon)
@@ -97,11 +100,39 @@ k_reduced = [0,1,2,3,4,4,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,10,10,10,10,11,11,11,11,1
 kdict = dict(zip(range(31),k_reduced))
 koeppen.values = np.vectorize(kdict.get)(koeppen.values)
 
+# get koeppen class for station pixel at koeppen resolution (way to do this more elegantly?)
+def find_closest(list_of_values, number):
+    return min(list_of_values, key=lambda x:abs(x-number))
+station_grid_lat = []
+station_grid_lon = []
+df = df[df.end > '2016-01-01'] # include only stations still running
+for lat, lon in zip(df.lat,df.lon):
+    station_grid_lat.append(find_closest(mmm.lat.values, lat))
+    station_grid_lon.append(find_closest(mmm.lon.values, lon))
+coords_unique = np.unique(np.array([station_grid_lat, station_grid_lon]), axis=1)
+
+stationdata = xr.DataArray(np.full((mmm.shape[0], coords_unique.shape[1]), np.nan),
+                   coords=[mmm.coords['time'], range(coords_unique.shape[1])], 
+                   dims=['time','stations'])
+stationdata = stationdata.assign_coords(lat=('stations',coords_unique[0,:]))
+stationdata = stationdata.assign_coords(lon=('stations',coords_unique[1,:]))
+koeppen_class = []
+for s in range(coords_unique.shape[1]):
+    lat, lon = coords_unique[:,s]
+    mmm.sel(lat=lat, lon=lon)
+    stationdata[:,s] = mmm.sel(lat=lat, lon=lon)
+    koeppen_class.append(koeppen.sel(lat=lat, lon=lon, method='nearest').item())
+stationdata = stationdata.assign_coords(koeppen_simple=('stations',koeppen_class))
+
 # plot trend per koeppen climate
-fig = plt.figure()
-ax = fig.add_subplot(111)
+from matplotlib.pyplot import cm
+color=cm.rainbow(np.linspace(0,1,11))
 reduced_names = ['Ocean','Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df','ET','EF']
-for k in range(1,12):
-    mmm.where(koeppen == k).mean(dim=('lat','lon')).plot(ax=ax)
-ax.legend(reduced_names[1:-2])
-plt.show()
+for k in range(14):
+    #fig = plt.figure()
+    #ax = fig.add_subplot(111)
+    #mmm.where(koeppen == k).mean(dim=('lat','lon')).plot(ax=ax, c=color[i,:])
+    #stationdata.where(stationdata.koeppen_simple == k, drop=True).mean(dim='stations').plot(ax=ax, c=color[i,:], linestyle='--')
+    #plt.show()
+#ax.legend(reduced_names[1:-2])
+#plt.show()
