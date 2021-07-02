@@ -78,7 +78,8 @@ for s in range(coords_unique.shape[1]):
 # plot
 fig = plt.figure()
 ax = fig.add_subplot(111)
-trend.plot(cmap='coolwarm_r', ax=ax)
+import IPython; IPython.embed()
+trend.plot(cmap='coolwarm_r', ax=ax, vmin=-0.3, vmax=0.3)
 plt.scatter(coords_unique[1,:], coords_unique[0,:], marker='x', s=1)
 plt.show()
 
@@ -128,7 +129,11 @@ stationdata = stationdata.assign_coords(koeppen_simple=('stations',koeppen_class
 from matplotlib.pyplot import cm
 color=cm.rainbow(np.linspace(0,1,11))
 reduced_names = ['Ocean','Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df','ET','EF']
+slope_stationdata = []
+slope_alldata = []
 for k in range(14):
+    slope_alldata.append(_calc_slope(np.arange(86),mmm.where(koeppen == k).mean(dim=('lat','lon'))))
+    slope_stationdata.append(_calc_slope(np.arange(86),stationdata.where(stationdata.koeppen_simple == k, drop=True).mean(dim='stations')))
     #fig = plt.figure()
     #ax = fig.add_subplot(111)
     #mmm.where(koeppen == k).mean(dim=('lat','lon')).plot(ax=ax, c=color[i,:])
@@ -136,3 +141,14 @@ for k in range(14):
     #plt.show()
 #ax.legend(reduced_names[1:-2])
 #plt.show()
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.scatter(range(14), slope_alldata, marker='x')
+ax.scatter(range(14), slope_stationdata, marker='x')
+ax.set_title('fitted linear trend in mean soil moisture 2020-2100 in MMM CMIP6 SSP5 8.5')
+ax.legend(['whole area of koeppen class', 'area of koeppen class that includes a ISMN station running until 2015'])
+ax.set_xticks(range(14))
+ax.set_xticklabels(reduced_names)
+ax.set_ylabel('fitted linear trend slope')
+ax.set_xlabel('simplified koeppen-geiger climate class')
+plt.show()
