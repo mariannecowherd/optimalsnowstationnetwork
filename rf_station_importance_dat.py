@@ -113,6 +113,7 @@ else:
     pred = pred['__xarray_dataarray_variable__']
 
 # calculate RMSE of CV
+import IPython; IPython.embed()
 rmse = np.sqrt(((data - pred)**2).mean(dim='time'))
 
 # plot
@@ -126,7 +127,7 @@ plt.show()
 # plot per koeppen climate
 koeppen_rmse = []
 for i in range(14):
-    koeppen_rmse.append(rmse.where(data.koeppen_simple == i, drop=True).mean().item())
+    koeppen_rmse.append(rmse.where(data.koeppen_simple == i).mean().item())
 reduced_names = ['Ocean','Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df','ET','EF']
 plt.bar(reduced_names, koeppen_rmse)
 plt.show()
