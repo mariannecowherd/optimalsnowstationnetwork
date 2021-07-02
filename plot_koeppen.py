@@ -30,6 +30,7 @@ gridarea = gridarea['cell_area']
 
 # open station locations
 stations = pd.read_csv(largefilepath + 'station_info_grid.csv')
+stations = stations[stations.end > '2016-01-01']
 
 # optional: aggregate koeppen classes to first two letters
 koeppen_reduced = xr.full_like(koeppen, np.nan)
@@ -69,6 +70,7 @@ for i in klist:
     #plt.show()
 density = density.to_dataset(name='data')
 density.to_netcdf(f'{largefilepath}koeppen_station_density.nc')
+density = density.to_array()
 
 
 # plot
@@ -80,7 +82,7 @@ ax2 = fig.add_subplot(132, projection=proj)
 ax3 = fig.add_subplot(133)
 koeppen.plot(ax=ax1, add_colorbar=False, cmap='terrain', transform=proj)
 ax1.scatter(stations.lon, stations.lat, marker='x', s=5, c='indianred', transform=proj)
-density.plot(ax=ax2, add_colorbar=True, cmap='Greens', transform=proj, vmin=0, vmax=80)
+density.plot(ax=ax2, add_colorbar=True, cmap='Greens', transform=proj, vmin=0, vmax=50)
 #ax2.scatter(stations.lon, stations.lat, marker='x', s=5, c='indianred', transform=proj)
 ax1.set_title('koeppen climate classes and ISMN stations')
 ax2.set_title('station density per koeppen class \n[stations per billion km^2]')
