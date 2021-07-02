@@ -41,6 +41,7 @@ variable = variable.merge(constant)
 print('load station data')
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 station_coords = pd.read_csv(largefilepath + 'station_info_grid.csv')
+station_coords = station_coords[station_coords.end > '2016-01-01'] # only 'still active' stations
 stations_grid_lat = station_coords.lat_grid.values
 stations_grid_lon= station_coords.lon_grid.values
 stations_start = [datetime.strptime(date, '%Y-%m-%d %M:%S:%f') for date in station_coords.start.values]
@@ -69,7 +70,7 @@ data['datapoints'] = np.arange(data.shape[0]) # give some coords for datapoint d
 variable['datapoints'] = np.arange(variable.shape[0]) # give some coords for datapoint dimension
 
 # normalise values
-case = 'latlontime'
+case = 'only2015'
 datamean = data.mean()
 datastd = data.std()
 data = (data - datamean) / datastd
