@@ -8,6 +8,7 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 
+# TODO extract koeppen class from static_variables.csv
 # add vegetation of each station; done, funny vegetation descriptions
 # use Martins apporach (see Email) # not done because less stations (soil moisture layer depths are not standardised)
 # see for example "find . -type f" in ismnpath
@@ -30,7 +31,7 @@ station_folders = glob.glob(f'{ismnpath}**/', recursive=True)
 # create empty pandas dataframe for data
 print('find all station information')
 index = range(2816)
-columns = ['lat','lon','start','end', 'land_cover_class', 'network', 'country']
+columns = ['lat','lon','start','end', 'land_cover_class', 'network', 'country','koeppen_class','simplified_koeppen_class']
 df = pd.DataFrame(index=index, columns=columns)
 daterange = pd.date_range(start='1979-01-01', end='2021-01-01', freq='1m')
 df_gaps = pd.DataFrame(index=daterange, columns=index)
@@ -58,13 +59,14 @@ for folder in station_folders:
 
     # get info on which months are measures per station
     test = pd.read_csv(onefile, skiprows=1, header=None, # first line is not header
-                       delimiter=r'\s+', # delimiter any no of whitespaces 
-                       engine='python', # future warnung suppressed
+                       delim_whitespace=True, # delimiter any no of whitespaces
                        parse_dates=[0], # first row is dates convert to format
-                       error_bad_lines=False) # ignore all lines with more columns
-    test = test[[0,2]]
-    test.columns = ['date','value']
+                       usecols=range(4)) # only first four columns since 5th column
+                                         # is network qf which may contain whitespaces
+    test.columns = ['date', 'hour' ,'value', 'qf_ismn']
     test = test.set_index('date')
+    test = test[['value','qf_ismn']]
+    test = test[test.qf_ismn == 'G'] # only entries where quality flag is 'good'
     test = test.resample('1m').mean()
     df_gaps.loc[df_gaps.index.isin(test.index),i] = test.value
 
@@ -73,13 +75,20 @@ for folder in station_folders:
         infofile = glob.glob(f'{folder}*static_variables.csv')[0]
     except IndexError: # file does not exist
         df.land_cover_class[i] = 'NaN'
+        df.koeppen_class[i] = 'NaN'
+        df.simplified_koeppen_class[i] = 'NaN'
     else:
         info = pd.read_csv(infofile, delimiter=';')
+
         try:
             df.land_cover_class[i] = str(info[info.quantity_name == 'land cover classification'].description.iloc[-1])
-        except AttributeError: # column names are different
+        except AttributeError: # column name does not exist
             df.land_cover_class[i] = 'NaN'
 
+        try:
+            df.koeppen_class[i] = info[info.quantity_name == 'climate classification'].value.item()
+        except AttributeError: # column name does not exist
+            df.koeppen_class[i] = 'NaN'
     # counter
     i += 1
 
@@ -99,6 +108,7 @@ df['lat_grid'] = station_grid_lat
 df['lon_grid'] = station_grid_lon
 
 # koeppen climate class per location
+import IPython; IPython.embed()
 print('get koeppen class of station location')
 filename = f'{largefilepath}Beck_KG_V1_present_0p0083.tif'
 koeppen = xr.open_rasterio(filename)
@@ -125,14 +135,17 @@ df['simplified_koeppen_class'] = stations_koeppen_class
 #df = df[df.koeppen_class != 0]
 
 # add country to station
-networks = pd.read_csv('ISMN_station_countries.txt', delimiter=r'\s+')
+networks = pd.read_csv('ISMN_station_countries.txt', delim_whitespace=True)
 networks = networks.set_index('Name')
-countries = [networks.loc[net].Country for net in df['network']]
+#countries = [networks.loc[net].Country for net in df['network']] # fails in IPython and nan when running
+countries = []
+for net in df ['network']:
+    countries. append(networks.loc[net].Country)
+df['country'] = countries
 
 # save
 print(df.head())
 print(df_gaps.head())
-import IPython; IPython.embed()
 df.to_csv(f'{largefilepath}station_info_grid.csv')
 
 # save as netcdf 
