@@ -30,7 +30,7 @@ station_folders = glob.glob(f'{ismnpath}**/', recursive=True)
 # create empty pandas dataframe for data
 print('find all station information')
 index = range(2816)
-columns = ['lat','lon','start','end', 'land_cover_class']
+columns = ['lat','lon','start','end', 'land_cover_class', 'network', 'country']
 df = pd.DataFrame(index=index, columns=columns)
 daterange = pd.date_range(start='1979-01-01', end='2021-01-01', freq='1m')
 df_gaps = pd.DataFrame(index=daterange, columns=index)
@@ -54,6 +54,7 @@ for folder in station_folders:
     df.lon[i] = lon
     df.start[i] = station_start
     df.end[i] = station_end
+    df.network[i] = folder.split('/')[-3]
 
     # get info on which months are measures per station
     test = pd.read_csv(onefile, skiprows=1, header=None, # first line is not header
@@ -123,9 +124,15 @@ df['simplified_koeppen_class'] = stations_koeppen_class
 #df_gaps = df_gaps.T[df.koeppen_class != 0].T # DEBUG TODO put in again
 #df = df[df.koeppen_class != 0]
 
+# add country to station
+networks = pd.read_csv('ISMN_station_countries.txt', delimiter=r'\s+')
+networks = networks.set_index('Name')
+countries = [networks.loc[net].Country for net in df['network']]
+
 # save
 print(df.head())
 print(df_gaps.head())
+import IPython; IPython.embed()
 df.to_csv(f'{largefilepath}station_info_grid.csv')
 
 # save as netcdf 
@@ -136,4 +143,6 @@ df_gaps = df_gaps.assign_coords(lon_grid=('stations',df.lon_grid))
 df_gaps = df_gaps.assign_coords(lat_grid=('stations',df.lat_grid))
 df_gaps = df_gaps.assign_coords(koeppen=('stations',df.koeppen_class))
 df_gaps = df_gaps.assign_coords(koeppen_simple=('stations',df.simplified_koeppen_class))
+df_gaps = df_gaps.assign_coords(network=('stations',df.network))
+df_gaps = df_gaps.assign_coords(country=('stations',df.country))
 df_gaps.to_netcdf(f'{largefilepath}df_gaps.nc')
