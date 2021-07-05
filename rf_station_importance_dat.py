@@ -10,7 +10,7 @@ from datetime import datetime
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 data = xr.open_dataarray(f'{largefilepath}df_gaps.nc')
 
-icalc = False
+icalc = True
 if icalc:
     # load feature space X
     print('load data')
@@ -24,6 +24,7 @@ if icalc:
                          f'{largefilepath}era5_deterministic_recent.var.025deg.{freq}.mean.nc',
                          f'{largefilepath}era5_deterministic_recent.var.025deg.{freq}.roll.nc',
                          f'{largefilepath}era5_deterministic_recent.precip.025deg.{freq}.sum.nc']
+    #filenames_variable = [f'{largefilepath}era5_deterministic_recent.var.025deg.{freq}.mean.nc']
     constant = xr.open_mfdataset(filenames_constant, combine='by_coords').load()
     variable = xr.open_mfdataset(filenames_variable, combine='by_coords').load()
     landlat, landlon = np.where((constant['lsm'].squeeze() > 0.8).load()) # land is 1, ocean is 0
@@ -58,76 +59,67 @@ if icalc:
     variable = variable.sel(lat=data.lat_grid, lon=data.lon_grid)
 
     # rf settings
-    n_trees = 100
+    n_trees = 50
     kwargs = {'n_estimators': n_trees,
               'min_samples_leaf': 2,
               'max_features': 'auto', 
               'max_samples': None, 
               'bootstrap': True,
               'warm_start': True,
-              'n_jobs': None, # set to number of trees
+              'n_jobs': 50, # set to number of trees
               'verbose': 0}
-
     pred = xr.full_like(data, np.nan)
-    for s, station in enumerate(variable.stations):
+
+    # stack dimensions time and stations and remove not measured time points per station
+    soil = data.stack(datapoints=('time','stations'))
+    variable = variable.stack(datapoints=('time','stations'))
+    soil = soil.where(~np.isnan(soil), drop=True)
+    variable = variable.where(~np.isnan(soil), drop=True).to_array().T
+
+    for s, station in enumerate(data.stations):
         now = datetime.now()
         print(now, s)
 
         # define test and train data
-        y_train = data.where(data.stations != station, drop=True)
-        y_test = data.sel(stations=station)
-        X_train = variable.where(data.stations != station, drop=True)
-        X_test = variable.sel(stations=station)
-
-        # remove timesteps w/o measurement or outside ERA5
-        y_train = y_train.where(~np.isnan(y_test) & y_test.time.isin(X_test.time), drop=True)
-        y_test = y_test.where(~np.isnan(y_test) & y_test.time.isin(X_test.time), drop=True)
-        X_train = X_train.where(~np.isnan(y_test) & y_test.time.isin(X_test.time), drop=True)
-        X_test = X_test.where(~np.isnan(y_test) & y_test.time.isin(X_test.time), drop=True)
-
-        # stack along axis
-        X_test = X_test.to_array().T
-        y_train = y_train.stack(datapoints=('time','stations')).reset_index('datapoints')
-        X_train = X_train.stack(datapoints=('time','stations')).reset_index('datapoints').to_array().T
-        X_train = X_train.where(~np.isnan(y_train), drop=True)
-        y_train = y_train.where(~np.isnan(y_train), drop=True)
-        if X_train.size == 0 or y_train.size == 0:
-            print(s, 'skipped')
-            continue
+        #y_test = data.where(data.stations == station, drop=True)
+        X_test = variable.where(soil.stations == station, drop=True)
+        y_train = soil.where(soil.stations != station, drop=True)
+        X_train = variable.where(soil.stations != station, drop=True)
 
         # train QRF
         rf = RandomForestRegressor(**kwargs)
         rf.fit(X_train, y_train)
 
         y_predict = rf.predict(X_test)
-        pred.loc[X_test.time,s] = y_predict
+        pred.loc[X_test.time,station] = y_predict
         #res = np.zeros((n_trees, X_test.shape[0]))
         #for t, tree in enumerate(rf.estimators_):
         #    res[t,:] = tree.predict(X_test)
         #mean = np.mean(res, axis=0)
         #upper, lower = np.percentile(res, [95 ,5], axis=0)
 
-    pred.to_netcdf(f'{largefilepath}pred_dat.nc')
+    pred.to_netcdf(f'{largefilepath}pred_dat.nc') # TODO DEBUG REMOVE
 else:
     pred = xr.open_dataset(f'{largefilepath}pred_dat.nc')
     pred = pred['__xarray_dataarray_variable__']
 
-# calculate RMSE of CV
+# calculate RMSE of CV # TODO data not yet normalised
+#rmse = np.sqrt(((data - pred)**2).mean(dim='time'))
 import IPython; IPython.embed()
-rmse = np.sqrt(((data - pred)**2).mean(dim='time'))
+pcorr = xr.corr(data,pred, dim='time')
 
 # plot
 proj = ccrs.PlateCarree()
 fig = plt.figure(figsize=(20,10))
 ax = fig.add_subplot(111, projection=proj)
-ax.scatter(pred.lon, pred.lat, c=rmse.values, marker='x', s=1, cmap='autumn_r', vmin=0, vmax=3)
+ax.scatter(pred.lon, pred.lat, c=pcorr.values, marker='o', s=2, cmap='autumn_r', vmin=0, vmax=1)
 ax.coastlines()
 plt.show()
 
 # plot per koeppen climate
 koeppen_rmse = []
 for i in range(14):
-    koeppen_rmse.append(rmse.where(data.koeppen_simple == i).mean().item())
+    koeppen_rmse.append(pcorr.where(data.koeppen_simple == i).mean().item())
 reduced_names = ['Ocean','Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df','ET','EF']
 plt.bar(reduced_names, koeppen_rmse)
 plt.show()
