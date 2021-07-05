@@ -87,8 +87,9 @@ for folder in station_folders:
 
         try:
             df.koeppen_class[i] = info[info.quantity_name == 'climate classification'].value.item()
-        except AttributeError: # column name does not exist
+        except (AttributeError, ValueError): # column name does not exist or more than one climate classification given
             df.koeppen_class[i] = 'NaN'
+            df.simplified_koeppen_class[i] = 'NaN'
     # counter
     i += 1
 
@@ -107,19 +108,30 @@ for lat, lon in zip(df.lat,df.lon):
 df['lat_grid'] = station_grid_lat
 df['lon_grid'] = station_grid_lon
 
-# koeppen climate class per location
-import IPython; IPython.embed()
+# translate koeppen class string into number
+legend = pd.read_csv('koeppen_legend.txt', delimiter=';', skipinitialspace=True)
+koeppen_no = []
+for station in df.koeppen_class:
+    if (station != 'NaN'):
+        if (station != 'W'):
+            koeppen_no.append(legend[legend.Short == station].No.item())
+        else:
+            koeppen_no.append(np.nan)
+    else:
+        koeppen_no.append(np.nan)
+df.koeppen_class = koeppen_no
+
+# fill remaining koeppen class info from koeppen map
 print('get koeppen class of station location')
 filename = f'{largefilepath}Beck_KG_V1_present_0p0083.tif'
 koeppen = xr.open_rasterio(filename)
 koeppen = koeppen.rename({'x':'lon','y':'lat'}).squeeze()
-
 koeppen_class = []
-for lat, lon in zip(station_grid_lat,station_grid_lon):
+for lat, lon in zip(df[np.isnan(df.koeppen_class)].lat, df[np.isnan(df.koeppen_class)].lon):
     klat = find_closest(koeppen.lat.values, lat)
     klon = find_closest(koeppen.lon.values, lon)
     koeppen_class.append(koeppen.sel(lon=klon, lat=klat).values.item())
-df['koeppen_class'] = koeppen_class
+df.loc[np.isnan(df.koeppen_class),'koeppen_class'] = koeppen_class
 
 # calculate reduced koeppen classes
 print('get simplified koeppen class of station location')
