@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import OPTICS
 
 # define time range
-years = list(np.arange(1979,2015))
+years = list(np.arange(1979,2021))
 
 # define paths
 largefilepath = '/net/so4/landclim/bverena/large_files/'
