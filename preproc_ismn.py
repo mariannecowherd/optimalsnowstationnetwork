@@ -37,6 +37,7 @@ daterange = pd.date_range(start='1979-01-01', end='2021-01-01', freq='1m')
 df_gaps = pd.DataFrame(index=daterange, columns=index)
 
 i = 0
+stations_without_valid_meas = []
 for folder in station_folders:
     try:
         onefile = glob.glob(f'{folder}*sm*.stm', recursive=True)[0]
@@ -68,6 +69,8 @@ for folder in station_folders:
     test = test[['value','qf_ismn']]
     test = test[test.qf_ismn == 'G'] # only entries where quality flag is 'good'
     test = test.resample('1m').mean()
+    if test.size == 0:
+        stations_without_valid_meas.append(i)
     df_gaps.loc[df_gaps.index.isin(test.index),i] = test.value
 
     # get metadata
@@ -92,6 +95,10 @@ for folder in station_folders:
             df.simplified_koeppen_class[i] = 'NaN'
     # counter
     i += 1
+
+# remove stations without valid measurements (from qf)
+df = df[~df.index.isin(stations_without_valid_meas)]
+df_gaps = df_gaps.T[~df_gaps.T.index.isin(stations_without_valid_meas)].T
 
 # interpolate station locations on era5 grid
 print('interpolate station locations on era5 grid')
