@@ -60,7 +60,7 @@ SNOTEL	USA	441
 SOILSCAPE	USA	171	
 SWEX_POLAND	Poland	6	 
 SW-WHU	China	7	
-TAHMO	Côtd'IvoireNigeria,Ghana,Uganda,Rwanda,Kenya	7
+TAHMO	CotedIvoire,Nigeria,Ghana,Uganda,Rwanda,Kenya	7
 TERENO	Germany	5	
 UDC_SMOS	Germany	11	
 UMBRIA	Italy	13	
