@@ -76,6 +76,8 @@ if icalc:
     soil = soil.where(~np.isnan(soil), drop=True)
     variable = variable.where(~np.isnan(soil), drop=True).to_array().T
 
+    tmp = []
+
     for s, station in enumerate(data.stations):
         now = datetime.now()
         print(now, s)
@@ -85,6 +87,9 @@ if icalc:
         X_test = variable.where(soil.stations == station, drop=True)
         y_train = soil.where(soil.stations != station, drop=True)
         X_train = variable.where(soil.stations != station, drop=True)
+        if X_test.size == 0:
+            tmp.append(s)
+            print(f'station {station.item()} skipped no values')
 
         # train QRF
         rf = RandomForestRegressor(**kwargs)
