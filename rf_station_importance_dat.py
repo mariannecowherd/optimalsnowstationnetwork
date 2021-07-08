@@ -154,17 +154,15 @@ density = [3.3126400217852,
  41.292729367904,
  60.665451036883,
  29.642355656222,
- 37.449535740312,
- 8.3342134994285,
- 0.2127171364699]
+ 37.449535740312]
 
-koeppen_rmse = koeppen_rmse[1:]
+koeppen_rmse = koeppen_rmse[1:-2]
 fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.set_ylim([0,1])
 ax.scatter(density, koeppen_rmse)
 #ax.errorbar(density, koeppen_rmse, yerr=koeppen_minmax[:,1:], fmt='none')
-for n, name in enumerate(reduced_names[1:]):
+for n, name in enumerate(reduced_names[1:-2]):
     ax.annotate(name, xy=(density[n], koeppen_rmse[n]))
 ax.set_ylabel('median correlation')
 ax.set_xlabel('station density [station per bio km^2]')
