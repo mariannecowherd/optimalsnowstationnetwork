@@ -49,8 +49,8 @@ ax.imshow(np.flipud(data.values), vmin=-2, vmax=2, cmap='coolwarm_r')
 # set ticklabels
 xticks = [0] + np.cumsum(np.unique(data.continent.values, return_counts=True)[1])[:-1].tolist()
 xticklabels = np.unique(data.continent.values)
-yticks = np.arange(0,504,12*5)
-yticklabels = np.arange(1979,2021,5)[::-1]
+yticks = np.arange(0,732,12*5)
+yticklabels = np.arange(1960,2021,5)[::-1]
 ax.set_xticks(xticks)
 ax.set_yticks(yticks)
 ax.set_xticklabels(xticklabels, rotation=90)
