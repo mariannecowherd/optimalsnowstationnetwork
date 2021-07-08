@@ -30,7 +30,7 @@ gridarea = gridarea['cell_area']
 
 # open station locations
 stations = pd.read_csv(largefilepath + 'station_info_grid.csv')
-stations = stations[stations.end > '2016-01-01']
+#stations = stations[stations.end > '2016-01-01'] # only stations still running
 
 # optional: aggregate koeppen classes to first two letters
 koeppen_reduced = xr.full_like(koeppen, np.nan)
@@ -55,7 +55,8 @@ for i in klist:
     area = gridarea.where(koeppen == i).sum().values.item() / (1000 * 1e9) # unit bio square km
     koeppen_station_density.append(float(n_stations) / area) # unit stations per bio square km
     koeppen_station_number.append(float(n_stations)) # unitless 
-    print(reduced_names[i], n_stations, area)
+    #print(reduced_names[i], n_stations, area)
+    print(reduced_names[i], float(n_stations) / area)
 
 # plot station density per koeppen climate map
 density = xr.full_like(koeppen, np.nan)
