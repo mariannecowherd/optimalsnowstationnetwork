@@ -10,7 +10,7 @@ from datetime import datetime
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 data = xr.open_dataarray(f'{largefilepath}df_gaps.nc')
 
-icalc = True
+icalc = False
 if icalc:
     # load feature space X
     print('load data')
@@ -87,9 +87,10 @@ if icalc:
         X_test = variable.where(soil.stations == station, drop=True)
         y_train = soil.where(soil.stations != station, drop=True)
         X_train = variable.where(soil.stations != station, drop=True)
-        if X_test.size == 0:
+        if X_test.size < 1:
             tmp.append(s)
             print(f'station {station.item()} skipped no values')
+            continue
 
         # train QRF
         rf = RandomForestRegressor(**kwargs)
@@ -110,21 +111,61 @@ else:
 
 # calculate RMSE of CV # TODO data not yet normalised
 #rmse = np.sqrt(((data - pred)**2).mean(dim='time'))
-import IPython; IPython.embed()
 pcorr = xr.corr(data,pred, dim='time')
 
 # plot
 proj = ccrs.PlateCarree()
 fig = plt.figure(figsize=(20,10))
 ax = fig.add_subplot(111, projection=proj)
-ax.scatter(pred.lon, pred.lat, c=pcorr.values, marker='o', s=2, cmap='autumn_r', vmin=0, vmax=1)
+ax.set_title('Correlation of leave-one-out-CV and original station data')
+im = ax.scatter(pred.lon, pred.lat, c=pcorr.values, marker='o', s=2, cmap='autumn_r', vmin=0, vmax=1)
+cax = fig.add_axes([0.9, 0.2, 0.02, 0.6])
+cbar = plt.colorbar(im, cax=cax)
+cbar.set_label('correlation')
 ax.coastlines()
-plt.show()
+plt.savefig('leave_one_out.png')
+plt.close()
 
 # plot per koeppen climate
 koeppen_rmse = []
+koeppen_minmax = np.zeros((2,14))
 for i in range(14):
-    koeppen_rmse.append(pcorr.where(data.koeppen_simple == i).mean().item())
+    tmp = pcorr.where(data.koeppen_simple == i)
+    tmp_median = tmp.median().item()
+    koeppen_rmse.append(tmp_median)
+    koeppen_minmax[:,i] = tmp_median - np.nanpercentile(tmp, 10), np.nanpercentile(tmp,90) - tmp_median
 reduced_names = ['Ocean','Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df','ET','EF']
-plt.bar(reduced_names, koeppen_rmse)
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.bar(reduced_names, koeppen_rmse)
+ax.set_ylabel('median correlation')
+ax.set_ylim([-0.1,1])
+plt.savefig('LOO-CV_koeppen.png')
+plt.close()
+
+# scatter with station density
+density = [3.3126400217852,
+ 2.4572254418477,
+ 3.5573204219480,
+ 9.6494712179372,
+ 23.995941152118,
+ 117.36169912495,
+ 2.8483855557724,
+ 41.292729367904,
+ 60.665451036883,
+ 29.642355656222,
+ 37.449535740312,
+ 8.3342134994285,
+ 0.2127171364699]
+
+koeppen_rmse = koeppen_rmse[1:]
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.set_ylim([0,1])
+ax.scatter(density, koeppen_rmse)
+#ax.errorbar(density, koeppen_rmse, yerr=koeppen_minmax[:,1:], fmt='none')
+for n, name in enumerate(reduced_names[1:]):
+    ax.annotate(name, xy=(density[n], koeppen_rmse[n]))
+ax.set_ylabel('median correlation')
+ax.set_xlabel('station density [station per bio km^2]')
 plt.show()
