@@ -33,7 +33,7 @@ print('find all station information')
 index = range(2816)
 columns = ['lat','lon','start','end', 'land_cover_class', 'network', 'country','koeppen_class','simplified_koeppen_class']
 df = pd.DataFrame(index=index, columns=columns)
-daterange = pd.date_range(start='1979-01-01', end='2021-01-01', freq='1m')
+daterange = pd.date_range(start='1960-01-01', end='2021-01-01', freq='1m')
 df_gaps = pd.DataFrame(index=daterange, columns=index)
 
 i = 0
