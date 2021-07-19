@@ -43,7 +43,7 @@ data_sum = data_sum.rename({'e':'esum','tp':'tpsum'})
 data_roll = data_roll.to_array(dim='variable').assign_coords(variable=[f'{var}roll' for var in varnames]).to_dataset('variable')
 
 # downsample to yearly resolution
-freq = '1m'
+freq = '1y'
 data = data.resample(time=freq).mean()
 data_roll = data_roll.resample(time=freq).mean()
 data_max = data_max.resample(time=freq).max()
