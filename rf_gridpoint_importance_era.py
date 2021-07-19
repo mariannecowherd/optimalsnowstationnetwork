@@ -13,6 +13,7 @@ varnames = ['swvl1','swvl2','swvl3']
 filenames = [f'{era5path}era5_deterministic_recent.{varname}.025deg.1m.{year}.nc' for year in years for varname in varnames]
 data = xr.open_mfdataset(filenames, combine='by_coords')
 data = data.to_array().mean(dim='variable')
+data = data.resample(time='1y').mean()
 
 icalc = True
 if icalc:
@@ -21,7 +22,7 @@ if icalc:
     largefilepath = '/net/so4/landclim/bverena/large_files/'
     era5path_invariant = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/'
     invarnames = ['lsm','z','slor','cvl','cvh', 'tvl', 'tvh']
-    freq = '1m'
+    freq = '1y'
     filenames_constant = [f'{era5path_invariant}era5_deterministic_recent.{varname}.025deg.time-invariant.nc' for varname in invarnames]
     filenames_variable = [f'{largefilepath}era5_deterministic_recent.temp.025deg.{freq}.max.nc', 
                          f'{largefilepath}era5_deterministic_recent.temp.025deg.{freq}.min.nc',
@@ -31,11 +32,11 @@ if icalc:
     #filenames_variable = [f'{largefilepath}era5_deterministic_recent.var.025deg.{freq}.mean.nc']
     constant = xr.open_mfdataset(filenames_constant, combine='by_coords').load()
     variable = xr.open_mfdataset(filenames_variable, combine='by_coords').load()
-    idxlat, idxlon = np.where((constant['lsm'].squeeze() > 0.8).load()) # land is 1, ocean is 0
-    landlat, landlon = [], []
-    for ilat, ilon in zip(idxlat, idxlon):
-        landlat.append(constant['lsm'].squeeze()[ilat,ilon].lat.item())
-        landlon.append(constant['lsm'].squeeze()[ilat,ilon].lon.item())
+    landlat, landlon = np.where((constant['lsm'].squeeze() > 0.8).load()) # land is 1, ocean is 0
+    #landlat, landlon = [], []
+    #for ilat, ilon in zip(idxlat, idxlon):
+    #    landlat.append(constant['lsm'].squeeze()[ilat,ilon].lat.item())
+    #    landlon.append(constant['lsm'].squeeze()[ilat,ilon].lon.item())
     #constant = constant.isel(lon=xr.DataArray(landlon, dims='landpoints'),
     #                         lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
     #variable = variable.isel(lon=xr.DataArray(landlon, dims='landpoints'),
@@ -76,29 +77,43 @@ if icalc:
               'warm_start': True,
               'n_jobs': 50, # set to number of trees
               'verbose': 0}
-    pred = xr.full_like(data, np.nan)
 
     # stack dimensions time and stations and remove not measured time points per station
-    soil = data.stack(datapoints=('lat','lon','time'))
     import IPython; IPython.embed()
-    variable = variable.stack(datapoints=('lat','lon','time')).to_array()
-    stations = np.arange(0, 522547200, 504)
+    soil = data.isel(lat=xr.DataArray(landlat, dims='landpoints'),
+                     lon=xr.DataArray(landlat, dims='landpoints'))
+    variable = variable.isel(lat=xr.DataArray(landlat, dims='landpoints'),
+                             lon=xr.DataArray(landlat, dims='landpoints'))
+    soil = soil.stack(datapoints=('landpoints','time'))
+    variable = variable.stack(datapoints=('landpoints','time')).to_array().T
+    pred = xr.full_like(soil, np.nan)
+    #stations = np.arange(0, 522547200, 504)
     #soil = soil.where(~np.isnan(soil), drop=True)
     #variable = variable.where(~np.isnan(soil), drop=True).to_array().T
+    landpoints = soil.landpoints.values
+    soil = soil.values # numpy is faster
+    variable = variable.values
 
     tmp = []
 
     #for l in range(len(landlat)):
-    for s in range(len(stations)):
+    #for s in range(len(stations)):
+    for landpoint in range(len(landlat)):
         now = datetime.now()
-        print(now, l)
-        start, end = stations[s], stations[s] + 504
+        print(now, landpoint)
+        #start, end = stations[s], stations[s] + 504
+        landpoint_mask = landpoints != landpoint
+        idx_test, idx_train = np.where(~landpoint_mask), np.where(landpoint_mask) # index-list indexing is faster than boolean indexing. source https://stackoverflow.com/questions/57783029/is-indexing-with-a-bool-array-or-index-array-faster-in-numpy-pytorch
 
-        import IPython; IPython.embed()
         # define test and train data
-        X_train = variable[:,:start], variable[:,end:]
-        X_test = variable[:,start:end]
-        y_train = data[:,:start], data[:,end:]
+        #y_test = soil[idx_test]
+        y_train = soil[idx_train]
+        X_test = variable[idx_test,:].squeeze()
+        X_train = variable[idx_train,:].squeeze()
+        #y_train = soil.where(soil.landpoints != landpoint, drop=True)
+        #X_train = variable[:,:start], variable[:,end:]
+        #X_test = variable[:,start:end]
+        #y_train = data[:,:start], data[:,end:]
         #X_test = variable.loc[lon,lat]
         #y_test = data.loc[:,lat,lon]
         #X_train = variable.where((variable.lat == lat) & (variable.lon == lon), drop=True)
@@ -117,9 +132,11 @@ if icalc:
 
         # train QRF
         rf = RandomForestRegressor(**kwargs)
+        import IPython; IPython.embed()
         rf.fit(X_train, y_train)
 
         y_predict = rf.predict(X_test)
+        import IPython; IPython.embed()
         pred.loc[X_test.time,station] = y_predict
         #res = np.zeros((n_trees, X_test.shape[0]))
         #for t, tree in enumerate(rf.estimators_):
