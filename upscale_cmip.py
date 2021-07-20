@@ -11,6 +11,8 @@ import cartopy.crs as ccrs
 from sklearn.ensemble import RandomForestRegressor
 
 # read CMIP6 files
+varnames_predictors = ['tas','tasmax','pr','hfls','rsds']
+varname_predictand = 'mrso'
 def rename_vars(data):
     _, _, modelname, _, ensemblename, _ = data.encoding['source'].split('_')
     data = data.rename({varname: f'{modelname}_{ensemblename}'})
