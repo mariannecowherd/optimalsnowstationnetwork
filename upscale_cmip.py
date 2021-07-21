@@ -119,6 +119,13 @@ arr_unobs = xr.DataArray(np.zeros((latlon_unobs.shape[1])),
 arr_unobs = arr_unobs.assign_coords(lat_cmip=('latlon',latlon_unobs[0,:]))
 arr_unobs = arr_unobs.assign_coords(lon_cmip=('latlon',latlon_unobs[1,:]))
 
+# alternative version for subsetting data
+#constant = constant.isel(lon=xr.DataArray(landlon, dims='landpoints'),
+#                         lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
+#data = data.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
+#y_predict[y.landpoints == landpoint] = mean
+#y_predict = y_predict.set_index(datapoints=('time', 'landpoints')).unstack('datapoints') 
+
 
 # use xoak to select gridpoints from trajectory
 import xoak
@@ -153,6 +160,7 @@ kwargs = {'n_estimators': n_trees,
           'verbose': 0}
 
 import IPython; IPython.embed()
+res = xr.full_like(mrso, np.nan)
 # loop over years
 for year in np.arange(1976,2015):
     next_year = str(year + 1)
@@ -161,5 +169,6 @@ for year in np.arange(1976,2015):
     rf = RandomForestRegressor(**kwargs)
     rf.fit(X_train.sel(time=slice('1960',year)), 
            y_train.sel(time=slice('1960',year)))
-
-    rf.predict(X_test.sel(time=slice(year, next_year))) 
+    
+    res = xr.full_like(X_test.sel(variable='pr',time=slice(year, next_year)).squeeze(), np.nan)
+    res[:] = rf.predict(X_test.sel(time=slice(year, next_year))) 
