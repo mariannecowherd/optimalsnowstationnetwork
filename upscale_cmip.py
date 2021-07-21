@@ -64,8 +64,8 @@ pred = pred.resample(time='1M').mean()
 
 # read station data
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-df_gaps = xr.open_dataset(f'{largefilepath}df_gaps.nc')
-df_gaps = df_gaps['__xarray_dataarray_variable__']
+stations = xr.open_dataset(f'{largefilepath}df_gaps.nc')
+stations = stations['__xarray_dataarray_variable__']
 
 # calculate deseasonalised anomaly 
 seasonal_mean = mrso.groupby('time.month').mean()
@@ -78,21 +78,32 @@ seasonal_std = pred.groupby('time.month').std()
 pred = (pred.groupby('time.month') - seasonal_mean) 
 pred = pred.groupby('time.month') / seasonal_std
 
-seasonal_mean = df_gaps.groupby('time.month').mean()
-seasonal_std = df_gaps.groupby('time.month').std()
-df_gaps = (df_gaps.groupby('time.month') - seasonal_mean) 
-df_gaps = df_gaps.groupby('time.month') / seasonal_std
+seasonal_mean = stations.groupby('time.month').mean()
+seasonal_std = stations.groupby('time.month').std()
+stations = (stations.groupby('time.month') - seasonal_mean) 
+stations = stations.groupby('time.month') / seasonal_std
 
 # regrid station data to CMIP6 grid
 lat_cmip = []
 lon_cmip = []
-for lat, lon in zip(df_gaps.lat, df_gaps.lon):
+for lat, lon in zip(stations.lat, stations.lon):
     point = mrso.sel(lat=lat, lon=lon, method='nearest')
     lat_cmip.append(point.lat.item())
     lon_cmip.append(point.lon.item())
-#df_gaps['lat_cmip'] = lat_cmip
-#df_gaps['lon_cmip'] = lon_cmip
+stations = stations.assign_coords(lat_cmip=('stations',lat_cmip))
+stations = stations.assign_coords(lon_cmip=('stations',lon_cmip))
 latlon_unique = np.unique(np.array([lat_cmip, lon_cmip]), axis=1)
+
+gridpoints = xr.DataArray(np.zeros((stations.shape[0],latlon_unique.shape[1])),
+                          dims=['time','latlon'],
+                          coords=[stations.time, np.arange(508)])
+for i in range(latlon_unique.shape[1]):
+    lat, lon = latlon_unique[:,i]
+    gridpoint_mean = stations.where((stations.lat_cmip == lat) & (stations.lon_cmip == lon), drop=True).mean(dim='stations')
+    gridpoints.loc[:,i] = gridpoint_mean
+import IPython; IPython.embed()
+gridpoints = gridpoints.assign_coords(lat_cmip=('latlon',latlon_unique[0,:]))
+gridpoints = gridpoints.assign_coords(lon_cmip=('latlon',latlon_unique[1,:]))
 
 import IPython; IPython.embed()
 # use xoak to select gridpoints from trajectory
@@ -101,4 +112,4 @@ lat_mesh, lon_mesh = np.meshgrid(mrso.lat, mrso.lon) # coords need to be in mesh
 mrso['lat_mesh'] = (('lon','lat'), lat_mesh)
 mrso['lon_mesh'] = (('lon','lat'), lon_mesh)
 mrso.xoak.set_index(['lat_mesh', 'lon_mesh'], 'sklearn_geo_balltree')
-mrso_obs = mrso.xoak.sel(lat=df_gaps.lat, lon=df_gaps.lon)
+mrso_obs = mrso.xoak.sel(lat_mesh=gridpoints.lat_cmip, lon_mesh=gridpoints.lon_cmip)
