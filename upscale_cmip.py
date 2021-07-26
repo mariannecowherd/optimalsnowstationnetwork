@@ -11,7 +11,7 @@ import cartopy.crs as ccrs
 from sklearn.ensemble import RandomForestRegressor
 
 # read CMIP6 files
-varnames_predictors = ['tas','tasmax','pr','hfls','rsds']
+varnames_predictors = ['tas','tasmax','pr','hfls','rsds'] # TODO add lai, topo, lagged features, treeFrac?
 varname_predictand = 'mrso'
 
 def rename_vars(data):
@@ -62,13 +62,6 @@ pred = pred.sel(time=slice('1960','2014'))
 mrso = mrso.resample(time='1M').mean()
 pred = pred.resample(time='1M').mean()
 
-# only landpoints
-#landmask = ~np.isnan(mrso[0,:,:]).copy(deep=True)
-#landlat, landlon = np.where(landmask)
-#landlat, landlon = xr.DataArray(landlat, dims='landpoints'), xr.DataArray(landlon, dims='landpoints')
-#mrso = mrso.isel(lat=landlat, lon=landlon)
-#pred = pred.isel(lat=landlat, lon=landlon)
-
 # read station data
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 stations = xr.open_dataset(f'{largefilepath}df_gaps.nc')
@@ -108,33 +101,8 @@ for lat, lon in zip(stations.lat, stations.lon):
     lon_cmip.append(point.lon.item())
 stations = stations.assign_coords(lat_cmip=('stations',lat_cmip))
 stations = stations.assign_coords(lon_cmip=('stations',lon_cmip))
-#latlon_obs = np.unique(np.array([lat_cmip, lon_cmip]), axis=1)
 
-#gridpoints = xr.DataArray(np.zeros((stations.shape[0],latlon_unique.shape[1])),
-#                          dims=['time','latlon'],
-#                          coords=[stations.time, np.arange(508)])
-#lat_mesh, lon_mesh = np.meshgrid(mrso.lat, mrso.lon) # coords need to be in mesh format
-#for i in range(latlon_obs.shape[1]):
-#    lat, lon = latlon_obs[:,i]
-##    gridpoint_mean = stations.where((stations.lat_cmip == lat) & (stations.lon_cmip == lon), drop=True).mean(dim='stations')
-##    gridpoints.loc[:,i] = gridpoint_mean
-#    mask = ((lat_mesh == lat) & (lon_mesh == lon))
-#    lat_mesh[mask] = np.nan
-#    lon_mesh[mask] = np.nan
-#
-#gridpoints = gridpoints.assign_coords(lat_cmip=('latlon',latlon_unique[0,:]))
-#gridpoints = gridpoints.assign_coords(lon_cmip=('latlon',latlon_unique[1,:]))
-#
-#lat_mesh = lat_mesh[~np.isnan(lat_mesh)]
-#lon_mesh = lon_mesh[~np.isnan(lon_mesh)]
-#latlon_unobs = np.array([lat_mesh, lon_mesh])
-#arr_unobs = xr.DataArray(np.zeros((latlon_unobs.shape[1])),
-#                         dims = ['latlon'],
-#                         coords = [np.arange(9860)])
-#arr_unobs = arr_unobs.assign_coords(lat_cmip=('latlon',latlon_unobs[0,:]))
-#arr_unobs = arr_unobs.assign_coords(lon_cmip=('latlon',latlon_unobs[1,:]))
-
-# alternative version for subsetting data
+# divide into obs and unobs data
 obslat, obslon = np.where(obsmask)
 obslat, obslon = xr.DataArray(obslat, dims='obspoints'), xr.DataArray(obslon, dims='obspoints')
 
@@ -146,45 +114,13 @@ unobslat, unobslon = xr.DataArray(unobslat, dims='unobspoints'), xr.DataArray(un
 
 mrso_unobs = mrso.isel(lat=unobslat, lon=unobslon)
 pred_unobs = pred.isel(lat=unobslat, lon=unobslon)
-import IPython; IPython.embed()
-#latobsidx = xr.DataArray(latlon_obs[0,:], dims='obspts', coords=[np.arange(latlon_obs.shape[1])])
-#lonobsidx = xr.DataArray(latlon_obs[1,:], dims='obspts', coords=[np.arange(latlon_obs.shape[1])])
-#
-#latunobsidx = xr.DataArray(latlon_unobs[0,:], dims='unobspts', coords=[np.arange(latlon_unobs.shape[1])])
-#lonunobsidx = xr.DataArray(latlon_unobs[1,:], dims='unobspts', coords=[np.arange(latlon_unobs.shape[1])])
-
-#mrso_obs = mrso.sel(lat=latobsidx, lon=lonobsidx)
-#pred_obs = pred.sel(lat=latobsidx, lon=lonobsidx)
-#
-#mrso_unobs = mrso.sel(lat=latunobsidx, lon=lonunobsidx)
-#pred_unobs = pred.sel(lat=latunobsidx, lon=lonunobsidx)
-# numpy indexing is only option for y_predict afaik, outer indexing works well with stack
-
-#data = data.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
-#y_predict[y.landpoints == landpoint] = mean
-#y_predict = y_predict.set_index(datapoints=('time', 'landpoints')).unstack('datapoints') 
-
-
-# use xoak to select gridpoints from trajectory
-#import xoak
-#lat_mesh, lon_mesh = np.meshgrid(mrso.lat, mrso.lon) # coords need to be in mesh format
-#mrso['lat_mesh'] = (('lon','lat'), lat_mesh)
-#mrso['lon_mesh'] = (('lon','lat'), lon_mesh)
-#mrso.xoak.set_index(['lat_mesh', 'lon_mesh'], 'sklearn_geo_balltree')
-#mrso_obs = mrso.xoak.sel(lat_mesh=gridpoints.lat_cmip, lon_mesh=gridpoints.lon_cmip)
-#
-#pred = pred.assign_coords(lat_mesh=(('lon','lat'), lat_mesh))
-#pred = pred.assign_coords(lon_mesh=(('lon','lat'), lon_mesh))
-#pred.xoak.set_index(['lat_mesh', 'lon_mesh'], 'sklearn_geo_balltree')
-#pred_obs = pred.xoak.sel(lat_mesh=gridpoints.lat_cmip, lon_mesh=gridpoints.lon_cmip)
-#
-#pred_unobs = pred.xoak.sel(lat_mesh=arr_unobs.lat_cmip, lon_mesh=arr_unobs.lon_cmip)
 
 # flatten to skikit-learn digestable table
-X_train = pred_obs.stack(datapoints=('obspts','time')).to_array().T
-y_train = mrso_obs.stack(datapoints=('obspts','time'))
+X_train = pred_obs.stack(datapoints=('obspoints','time')).to_array().T
+y_train = mrso_obs.stack(datapoints=('obspoints','time'))
 
-X_test = pred_unobs.stack(obspoints=('latlon','time')).to_array().T
+X_test = pred_unobs.stack(datapoints=('unobspoints','time')).to_array().T
+y_predict = mrso_unobs.stack(datapoints=('unobspoints','time'))
 
 # rf settings TODO later use GP
 n_trees = 100
@@ -197,16 +133,25 @@ kwargs = {'n_estimators': n_trees,
           'n_jobs': None, # set to number of trees
           'verbose': 0}
 
-import IPython; IPython.embed()
-res = xr.full_like(mrso, np.nan)
+#res = xr.full_like(mrso_unobs.sel(time=slice('1979','2015')), np.nan)
+rf = RandomForestRegressor(**kwargs)
+rf.fit(X_train, y_train)
+y_predict[:] = rf.predict(X_test)
+
+# back to worldmap
+y_predict = y_predict.unstack('datapoints').T
+mrso_pred = xr.full_like(mrso, np.nan)
+mrso_pred.values[:,unobslat,unobslon] = y_predict
+
 # loop over years
-for year in np.arange(1976,2015):
-    next_year = str(year + 1)
-    year = str(year)
-    
-    rf = RandomForestRegressor(**kwargs)
-    rf.fit(X_train.sel(time=slice('1960',year)), 
-           y_train.sel(time=slice('1960',year)))
-    
-    res = xr.full_like(X_test.sel(variable='pr',time=slice(year, next_year)).squeeze(), np.nan)
-    res[:] = rf.predict(X_test.sel(time=slice(year, next_year))) 
+#for year in np.arange(1976,2015):
+#    next_year = str(year + 1)
+#    year = str(year)
+#    
+#    rf = RandomForestRegressor(**kwargs)
+#    rf.fit(X_train.sel(time=slice('1960',year)), 
+#           y_train.sel(time=slice('1960',year)))
+#    
+#    res = xr.full_like(X_test.sel(variable='pr',time=slice(year, next_year)).squeeze(), np.nan)
+#    res[:] = rf.predict(X_test.sel(time=slice(year, next_year))) 
+#    import IPython; IPython.embed()
