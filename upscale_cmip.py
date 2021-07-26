@@ -62,6 +62,13 @@ pred = pred.sel(time=slice('1960','2014'))
 mrso = mrso.resample(time='1M').mean()
 pred = pred.resample(time='1M').mean()
 
+# only landpoints
+#landmask = ~np.isnan(mrso[0,:,:]).copy(deep=True)
+#landlat, landlon = np.where(landmask)
+#landlat, landlon = xr.DataArray(landlat, dims='landpoints'), xr.DataArray(landlon, dims='landpoints')
+#mrso = mrso.isel(lat=landlat, lon=landlon)
+#pred = pred.isel(lat=landlat, lon=landlon)
+
 # read station data
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 stations = xr.open_dataset(f'{largefilepath}df_gaps.nc')
@@ -85,66 +92,97 @@ stations = (stations.groupby('time.month') - seasonal_mean)
 stations = stations.groupby('time.month') / seasonal_std
 
 # regrid station data to CMIP6 grid
+landmask = ~np.isnan(mrso[0,:,:]).copy(deep=True)
+obsmask = xr.full_like(landmask, False)
+unobsmask = landmask.copy(deep=True)
 lat_cmip = []
 lon_cmip = []
 for lat, lon in zip(stations.lat, stations.lon):
-    point = mrso.sel(lat=lat, lon=lon, method='nearest')
+    point = landmask.sel(lat=lat, lon=lon, method='nearest')
+    
+    obsmask.loc[point.lat, point.lon] = True
+    unobsmask.loc[point.lat, point.lon] = False
+
+
     lat_cmip.append(point.lat.item())
     lon_cmip.append(point.lon.item())
 stations = stations.assign_coords(lat_cmip=('stations',lat_cmip))
 stations = stations.assign_coords(lon_cmip=('stations',lon_cmip))
-latlon_unique = np.unique(np.array([lat_cmip, lon_cmip]), axis=1)
+#latlon_obs = np.unique(np.array([lat_cmip, lon_cmip]), axis=1)
 
-gridpoints = xr.DataArray(np.zeros((stations.shape[0],latlon_unique.shape[1])),
-                          dims=['time','latlon'],
-                          coords=[stations.time, np.arange(508)])
-lat_mesh, lon_mesh = np.meshgrid(mrso.lat, mrso.lon) # coords need to be in mesh format
-for i in range(latlon_unique.shape[1]):
-    lat, lon = latlon_unique[:,i]
-    gridpoint_mean = stations.where((stations.lat_cmip == lat) & (stations.lon_cmip == lon), drop=True).mean(dim='stations')
-    gridpoints.loc[:,i] = gridpoint_mean
-    mask = ((lat_mesh == lat) & (lon_mesh == lon))
-    lat_mesh[mask] = np.nan
-    lon_mesh[mask] = np.nan
-
-gridpoints = gridpoints.assign_coords(lat_cmip=('latlon',latlon_unique[0,:]))
-gridpoints = gridpoints.assign_coords(lon_cmip=('latlon',latlon_unique[1,:]))
-
-lat_mesh = lat_mesh[~np.isnan(lat_mesh)]
-lon_mesh = lon_mesh[~np.isnan(lon_mesh)]
-latlon_unobs = np.array([lat_mesh, lon_mesh])
-arr_unobs = xr.DataArray(np.zeros((latlon_unobs.shape[1])),
-                         dims = ['latlon'],
-                         coords = [np.arange(9860)])
-arr_unobs = arr_unobs.assign_coords(lat_cmip=('latlon',latlon_unobs[0,:]))
-arr_unobs = arr_unobs.assign_coords(lon_cmip=('latlon',latlon_unobs[1,:]))
+#gridpoints = xr.DataArray(np.zeros((stations.shape[0],latlon_unique.shape[1])),
+#                          dims=['time','latlon'],
+#                          coords=[stations.time, np.arange(508)])
+#lat_mesh, lon_mesh = np.meshgrid(mrso.lat, mrso.lon) # coords need to be in mesh format
+#for i in range(latlon_obs.shape[1]):
+#    lat, lon = latlon_obs[:,i]
+##    gridpoint_mean = stations.where((stations.lat_cmip == lat) & (stations.lon_cmip == lon), drop=True).mean(dim='stations')
+##    gridpoints.loc[:,i] = gridpoint_mean
+#    mask = ((lat_mesh == lat) & (lon_mesh == lon))
+#    lat_mesh[mask] = np.nan
+#    lon_mesh[mask] = np.nan
+#
+#gridpoints = gridpoints.assign_coords(lat_cmip=('latlon',latlon_unique[0,:]))
+#gridpoints = gridpoints.assign_coords(lon_cmip=('latlon',latlon_unique[1,:]))
+#
+#lat_mesh = lat_mesh[~np.isnan(lat_mesh)]
+#lon_mesh = lon_mesh[~np.isnan(lon_mesh)]
+#latlon_unobs = np.array([lat_mesh, lon_mesh])
+#arr_unobs = xr.DataArray(np.zeros((latlon_unobs.shape[1])),
+#                         dims = ['latlon'],
+#                         coords = [np.arange(9860)])
+#arr_unobs = arr_unobs.assign_coords(lat_cmip=('latlon',latlon_unobs[0,:]))
+#arr_unobs = arr_unobs.assign_coords(lon_cmip=('latlon',latlon_unobs[1,:]))
 
 # alternative version for subsetting data
-#constant = constant.isel(lon=xr.DataArray(landlon, dims='landpoints'),
-#                         lat=xr.DataArray(landlat, dims='landpoints')).squeeze()
+obslat, obslon = np.where(obsmask)
+obslat, obslon = xr.DataArray(obslat, dims='obspoints'), xr.DataArray(obslon, dims='obspoints')
+
+mrso_obs = mrso.isel(lat=obslat, lon=obslon)
+pred_obs = pred.isel(lat=obslat, lon=obslon)
+
+unobslat, unobslon = np.where(unobsmask)
+unobslat, unobslon = xr.DataArray(unobslat, dims='unobspoints'), xr.DataArray(unobslon, dims='unobspoints')
+
+mrso_unobs = mrso.isel(lat=unobslat, lon=unobslon)
+pred_unobs = pred.isel(lat=unobslat, lon=unobslon)
+import IPython; IPython.embed()
+#latobsidx = xr.DataArray(latlon_obs[0,:], dims='obspts', coords=[np.arange(latlon_obs.shape[1])])
+#lonobsidx = xr.DataArray(latlon_obs[1,:], dims='obspts', coords=[np.arange(latlon_obs.shape[1])])
+#
+#latunobsidx = xr.DataArray(latlon_unobs[0,:], dims='unobspts', coords=[np.arange(latlon_unobs.shape[1])])
+#lonunobsidx = xr.DataArray(latlon_unobs[1,:], dims='unobspts', coords=[np.arange(latlon_unobs.shape[1])])
+
+#mrso_obs = mrso.sel(lat=latobsidx, lon=lonobsidx)
+#pred_obs = pred.sel(lat=latobsidx, lon=lonobsidx)
+#
+#mrso_unobs = mrso.sel(lat=latunobsidx, lon=lonunobsidx)
+#pred_unobs = pred.sel(lat=latunobsidx, lon=lonunobsidx)
+# numpy indexing is only option for y_predict afaik, outer indexing works well with stack
+
 #data = data.stack(datapoints=("time", "landpoints")).reset_index("datapoints").T
 #y_predict[y.landpoints == landpoint] = mean
 #y_predict = y_predict.set_index(datapoints=('time', 'landpoints')).unstack('datapoints') 
 
 
 # use xoak to select gridpoints from trajectory
-import xoak
-lat_mesh, lon_mesh = np.meshgrid(mrso.lat, mrso.lon) # coords need to be in mesh format
-mrso['lat_mesh'] = (('lon','lat'), lat_mesh)
-mrso['lon_mesh'] = (('lon','lat'), lon_mesh)
-mrso.xoak.set_index(['lat_mesh', 'lon_mesh'], 'sklearn_geo_balltree')
-mrso_obs = mrso.xoak.sel(lat_mesh=gridpoints.lat_cmip, lon_mesh=gridpoints.lon_cmip)
-
-pred = pred.assign_coords(lat_mesh=(('lon','lat'), lat_mesh))
-pred = pred.assign_coords(lon_mesh=(('lon','lat'), lon_mesh))
-pred.xoak.set_index(['lat_mesh', 'lon_mesh'], 'sklearn_geo_balltree')
-pred_obs = pred.xoak.sel(lat_mesh=gridpoints.lat_cmip, lon_mesh=gridpoints.lon_cmip)
-
-pred_unobs = pred.xoak.sel(lat_mesh=arr_unobs.lat_cmip, lon_mesh=arr_unobs.lon_cmip)
+#import xoak
+#lat_mesh, lon_mesh = np.meshgrid(mrso.lat, mrso.lon) # coords need to be in mesh format
+#mrso['lat_mesh'] = (('lon','lat'), lat_mesh)
+#mrso['lon_mesh'] = (('lon','lat'), lon_mesh)
+#mrso.xoak.set_index(['lat_mesh', 'lon_mesh'], 'sklearn_geo_balltree')
+#mrso_obs = mrso.xoak.sel(lat_mesh=gridpoints.lat_cmip, lon_mesh=gridpoints.lon_cmip)
+#
+#pred = pred.assign_coords(lat_mesh=(('lon','lat'), lat_mesh))
+#pred = pred.assign_coords(lon_mesh=(('lon','lat'), lon_mesh))
+#pred.xoak.set_index(['lat_mesh', 'lon_mesh'], 'sklearn_geo_balltree')
+#pred_obs = pred.xoak.sel(lat_mesh=gridpoints.lat_cmip, lon_mesh=gridpoints.lon_cmip)
+#
+#pred_unobs = pred.xoak.sel(lat_mesh=arr_unobs.lat_cmip, lon_mesh=arr_unobs.lon_cmip)
 
 # flatten to skikit-learn digestable table
-X_train = pred_obs.stack(obspoints=('latlon','time')).to_array().T
-y_train = mrso_obs.stack(obspoints=('latlon','time'))
+X_train = pred_obs.stack(datapoints=('obspts','time')).to_array().T
+y_train = mrso_obs.stack(datapoints=('obspts','time'))
 
 X_test = pred_unobs.stack(obspoints=('latlon','time')).to_array().T
 
