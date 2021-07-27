@@ -30,8 +30,7 @@ def rename_vars(data):
         data['time'] = data.indexes['time'].to_datetimeindex()
     return data
 
-def open_cmip_suite(varname, experimentname, ensemblename):
-    modelname = 'CanESM5'
+def open_cmip_suite(varname, modelname, experimentname, ensemblename):
     cmip6_path = f'/net/atmos/data/cmip6-ng/{varname}/mon/g025/'
     data = xr.open_mfdataset(f'{cmip6_path}{varname}*_{modelname}_{experimentname}_{ensemblename}_*.nc', 
                              combine='nested', # timestamp problem
@@ -44,14 +43,15 @@ def open_cmip_suite(varname, experimentname, ensemblename):
 
     return data
 
+modelname = 'CanESM5'
 experimentname = 'historical'
 ensemblename = 'r1i1p1f1'
-mrso = open_cmip_suite('mrso', experimentname, ensemblename)
-tasmax = open_cmip_suite('tasmax', experimentname, ensemblename)
-tas = open_cmip_suite('tas', experimentname, ensemblename)
-pr = open_cmip_suite('pr', experimentname, ensemblename)
-hfls = open_cmip_suite('hfls', experimentname, ensemblename)
-rsds = open_cmip_suite('rsds', experimentname, ensemblename)
+mrso = open_cmip_suite('mrso', modelname, experimentname, ensemblename)
+tasmax = open_cmip_suite('tasmax', modelname, experimentname, ensemblename)
+tas = open_cmip_suite('tas', modelname, experimentname, ensemblename)
+pr = open_cmip_suite('pr', modelname, experimentname, ensemblename)
+hfls = open_cmip_suite('hfls', modelname, experimentname, ensemblename)
+rsds = open_cmip_suite('rsds', modelname, experimentname, ensemblename)
 
 # cut out Greenland and Antarctica
 n_greenland = regionmask.defined_regions.natural_earth.countries_110.map_keys('Greenland')
@@ -154,7 +154,8 @@ mrso_pred = xr.full_like(mrso, np.nan)
 mrso_pred.values[:,unobslat,unobslon] = y_predict
 
 # save as netcdf
-mrso_pred.to_netcdf(f'{largefilepath}mrso_pred_{modelname}_{experimentname}_{ensemblename}.nc')
+mrso_pred.to_netcdf(f'{largefilepath}mrso_pred_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
+mrso.to_netcdf(f'{largefilepath}mrso_orig_{modelname}_{experimentname}_{ensemblename}.nc')
 
 # loop over years
 #for year in np.arange(1976,2015):
