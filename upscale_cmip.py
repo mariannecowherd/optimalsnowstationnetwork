@@ -6,6 +6,7 @@ import cftime
 import numpy as np
 import pandas as pd
 import xarray as xr
+import regionmask
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 from sklearn.ensemble import RandomForestRegressor
@@ -30,8 +31,9 @@ def rename_vars(data):
     return data
 
 def open_cmip_suite(varname, experimentname, ensemblename):
+    modelname = 'CanESM5'
     cmip6_path = f'/net/atmos/data/cmip6-ng/{varname}/mon/g025/'
-    data = xr.open_mfdataset(f'{cmip6_path}{varname}*_{experimentname}_{ensemblename}_*.nc', 
+    data = xr.open_mfdataset(f'{cmip6_path}{varname}*_{modelname}_{experimentname}_{ensemblename}_*.nc', 
                              combine='nested', # timestamp problem
                              concat_dim=None,  # timestamp problem
                              preprocess=rename_vars)  # rename vars to model name
@@ -50,6 +52,12 @@ tas = open_cmip_suite('tas', experimentname, ensemblename)
 pr = open_cmip_suite('pr', experimentname, ensemblename)
 hfls = open_cmip_suite('hfls', experimentname, ensemblename)
 rsds = open_cmip_suite('rsds', experimentname, ensemblename)
+
+# cut out Greenland and Antarctica
+n_greenland = regionmask.defined_regions.natural_earth.countries_110.map_keys('Greenland')
+n_antarctica = regionmask.defined_regions.natural_earth.countries_110.map_keys('Antarctica')
+mask = regionmask.defined_regions.natural_earth.countries_110.mask(mrso)
+mrso = mrso.where((mask != n_greenland) & (mask != n_antarctica) & (~np.isnan(mask)))
 
 # merge predictors into one dataset 
 pred = xr.merge([tasmax,tas,pr,hfls,rsds])
@@ -76,6 +84,7 @@ mrso = mrso.groupby('time.month') / seasonal_std
 
 seasonal_mean = pred.groupby('time.month').mean()
 seasonal_std = pred.groupby('time.month').std()
+seasonal_std['rsds'] = seasonal_std['rsds'].where(seasonal_std['rsds'] != 0,1) # zero sh in in high lat winter leads to nan values
 pred = (pred.groupby('time.month') - seasonal_mean) 
 pred = pred.groupby('time.month') / seasonal_std
 
@@ -93,7 +102,8 @@ lon_cmip = []
 for lat, lon in zip(stations.lat, stations.lon):
     point = landmask.sel(lat=lat, lon=lon, method='nearest')
     
-    obsmask.loc[point.lat, point.lon] = True
+    if landmask.loc[point.lat,point.lon].item(): # obs gridpoint if station contained and on CMIP land
+        obsmask.loc[point.lat, point.lon] = True
     unobsmask.loc[point.lat, point.lon] = False
 
 
@@ -142,6 +152,9 @@ y_predict[:] = rf.predict(X_test)
 y_predict = y_predict.unstack('datapoints').T
 mrso_pred = xr.full_like(mrso, np.nan)
 mrso_pred.values[:,unobslat,unobslon] = y_predict
+
+# save as netcdf
+mrso_pred.to_netcdf(f'{largefilepath}mrso_pred_{modelname}_{experimentname}_{ensemblename}.nc')
 
 # loop over years
 #for year in np.arange(1976,2015):
