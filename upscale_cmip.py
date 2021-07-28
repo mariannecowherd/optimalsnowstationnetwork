@@ -150,8 +150,11 @@ y_predict[:] = rf.predict(X_test)
 
 # back to worldmap
 y_predict = y_predict.unstack('datapoints').T
+y_train = y_train.unstack('datapoints').T
 mrso_pred = xr.full_like(mrso, np.nan)
+import IPython; IPython.embed()
 mrso_pred.values[:,unobslat,unobslon] = y_predict
+mrso_pred.values[:,obslat,obslon] = y_train
 
 # save as netcdf
 mrso_pred.to_netcdf(f'{largefilepath}mrso_pred_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
