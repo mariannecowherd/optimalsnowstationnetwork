@@ -21,3 +21,6 @@ orig_drought = (orig - perc90)
 orig_drought = orig_drought.where(orig_drought > 0)
 pred_drought = (pred - perc90)
 pred_drought = pred_drought.where(pred_drought > 0)
+
+ 
+import IPython; IPython.embed()
