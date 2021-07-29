@@ -87,10 +87,10 @@ stations = stations['__xarray_dataarray_variable__']
 stations = stations.sel(time=slice('1960','2014'))
 
 # calculate deseasonalised anomaly 
-#seasonal_mean = mrso.groupby('time.month').mean()
-#seasonal_std = mrso.groupby('time.month').std()
-#mrso = (mrso.groupby('time.month') - seasonal_mean) 
-#mrso = mrso.groupby('time.month') / seasonal_std
+seasonal_mean = mrso.groupby('time.month').mean()
+seasonal_std = mrso.groupby('time.month').std()
+mrso = (mrso.groupby('time.month') - seasonal_mean) 
+mrso = mrso.groupby('time.month') / seasonal_std
 #mrso = (mrso - mrso.mean()) / mrso.std()
 
 #seasonal_mean = pred.groupby('time.month').mean() # not necessary for RF and difficult for pr
@@ -157,7 +157,7 @@ for n, ntrees in enumerate(ntrees_list):
     #          'verbose': 0}
 
     #rf = RandomForestRegressor(**kwargs)
-    rf = RandomForestRegressor(warm_start=False, n_estimators= 100, n_jobs=100)
+    rf = RandomForestRegressor(warm_start=False, n_estimators= ntrees, n_jobs=ntrees)
 
     for o, gridpoints in enumerate(np.array_split(obspoints, 30)): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
 
