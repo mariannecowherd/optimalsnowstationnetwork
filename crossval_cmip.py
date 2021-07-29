@@ -60,6 +60,12 @@ tas_3month = tas.copy(deep=True).shift(time=3, fill_value=0).rename('tas_3m')
 tas_4month = tas.copy(deep=True).shift(time=4, fill_value=0).rename('tas_4m')
 tas_5month = tas.copy(deep=True).shift(time=5, fill_value=0).rename('tas_5m')
 tas_6month = tas.copy(deep=True).shift(time=6, fill_value=0).rename('tas_6m')
+tas_7month = tas.copy(deep=True).shift(time=7, fill_value=0).rename('tas_7m')
+tas_8month = tas.copy(deep=True).shift(time=8, fill_value=0).rename('tas_8m')
+tas_9month = tas.copy(deep=True).shift(time=9, fill_value=0).rename('tas_9m')
+tas_10month = tas.copy(deep=True).shift(time=10, fill_value=0).rename('tas_10m')
+tas_11month = tas.copy(deep=True).shift(time=11, fill_value=0).rename('tas_11m')
+tas_12month = tas.copy(deep=True).shift(time=12, fill_value=0).rename('tas_12m')
 
 pr_1month = pr.copy(deep=True).shift(time=1, fill_value=0).rename('pr_1m') 
 pr_2month = pr.copy(deep=True).shift(time=2, fill_value=0).rename('pr_2m')
@@ -67,10 +73,18 @@ pr_3month = pr.copy(deep=True).shift(time=3, fill_value=0).rename('pr_3m')
 pr_4month = pr.copy(deep=True).shift(time=4, fill_value=0).rename('pr_4m')
 pr_5month = pr.copy(deep=True).shift(time=5, fill_value=0).rename('pr_5m')
 pr_6month = pr.copy(deep=True).shift(time=6, fill_value=0).rename('pr_6m')
+pr_7month = pr.copy(deep=True).shift(time=7, fill_value=0).rename('pr_7m')
+pr_8month = pr.copy(deep=True).shift(time=8, fill_value=0).rename('pr_8m')
+pr_9month = pr.copy(deep=True).shift(time=9, fill_value=0).rename('pr_9m')
+pr_10month = pr.copy(deep=True).shift(time=10, fill_value=0).rename('pr_10m')
+pr_11month = pr.copy(deep=True).shift(time=11, fill_value=0).rename('pr_11m')
+pr_12month = pr.copy(deep=True).shift(time=12, fill_value=0).rename('pr_12m')
 
 # merge predictors into one dataset 
 pred = xr.merge([tas, tas_1month, tas_2month, tas_3month, tas_4month, tas_5month, tas_6month,
-                 pr, pr_1month, pr_2month, pr_3month, pr_4month, pr_5month, pr_6month])
+                 tas_7month, tas_8month, tas_9month, tas_10month, tas_11month, tas_12month,
+                 pr, pr_1month, pr_2month, pr_3month, pr_4month, pr_5month, pr_6month,
+                 pr_7month, pr_8month, pr_9month, pr_10month, pr_11month, pr_12month])
 
 # select timerange of ismn
 mrso = mrso.sel(time=slice('1960','2014'))
@@ -147,17 +161,17 @@ pred_obs = pred_obs.stack(datapoints=('obspoints','time')).to_array().T
 for n, ntrees in enumerate(ntrees_list):
 
     # rf settings TODO later use GP
-    #kwargs = {'n_estimators': ntrees,
-    #          'min_samples_leaf': 2,
+    kwargs = {'n_estimators': ntrees,
+    #          'min_samples_leaf': 2, # those are all default values anyways
     #          'max_features': 'auto', 
     #          'max_samples': None, 
     #          'bootstrap': True,
-    #          'warm_start': False,
-    #          'n_jobs': None, # set to number of trees
-    #          'verbose': 0}
+              'warm_start': False,
+              'n_jobs': ntrees, # set to number of trees
+              'verbose': 0}
 
-    #rf = RandomForestRegressor(**kwargs)
-    rf = RandomForestRegressor(warm_start=False, n_estimators= ntrees, n_jobs=ntrees)
+    rf = RandomForestRegressor(**kwargs)
+    #rf = RandomForestRegressor(warm_start=False, n_estimators= ntrees, n_jobs=ntrees)
 
     for o, gridpoints in enumerate(np.array_split(obspoints, 30)): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
 
