@@ -87,10 +87,10 @@ stations = stations['__xarray_dataarray_variable__']
 stations = stations.sel(time=slice('1960','2014'))
 
 # calculate deseasonalised anomaly 
-seasonal_mean = mrso.groupby('time.month').mean()
-seasonal_std = mrso.groupby('time.month').std()
-mrso = (mrso.groupby('time.month') - seasonal_mean) 
-mrso = mrso.groupby('time.month') / seasonal_std
+#seasonal_mean = mrso.groupby('time.month').mean()
+#seasonal_std = mrso.groupby('time.month').std()
+#mrso = (mrso.groupby('time.month') - seasonal_mean) 
+#mrso = mrso.groupby('time.month') / seasonal_std
 #mrso = (mrso - mrso.mean()) / mrso.std()
 
 #seasonal_mean = pred.groupby('time.month').mean() # not necessary for RF and difficult for pr
@@ -98,10 +98,10 @@ mrso = mrso.groupby('time.month') / seasonal_std
 #pred = (pred.groupby('time.month') - seasonal_mean) 
 #pred = pred.groupby('time.month') / seasonal_std
 
-seasonal_mean = stations.groupby('time.month').mean()
-seasonal_std = stations.groupby('time.month').std()
-stations = (stations.groupby('time.month') - seasonal_mean) 
-stations = stations.groupby('time.month') / seasonal_std
+#seasonal_mean = stations.groupby('time.month').mean()
+#seasonal_std = stations.groupby('time.month').std()
+#stations = (stations.groupby('time.month') - seasonal_mean) 
+#stations = stations.groupby('time.month') / seasonal_std
 
 # regrid station data to CMIP6 grid
 landmask = ~np.isnan(mrso[0,:,:]).copy(deep=True)
@@ -147,29 +147,33 @@ pred_obs = pred_obs.stack(datapoints=('obspoints','time')).to_array().T
 for n, ntrees in enumerate(ntrees_list):
 
     # rf settings TODO later use GP
-    kwargs = {'n_estimators': ntrees,
-              'min_samples_leaf': 2,
-              'max_features': 'auto', 
-              'max_samples': None, 
-              'bootstrap': True,
-              'warm_start': False,
-              'n_jobs': None, # set to number of trees
-              'verbose': 0}
+    #kwargs = {'n_estimators': ntrees,
+    #          'min_samples_leaf': 2,
+    #          'max_features': 'auto', 
+    #          'max_samples': None, 
+    #          'bootstrap': True,
+    #          'warm_start': False,
+    #          'n_jobs': None, # set to number of trees
+    #          'verbose': 0}
 
-    rf = RandomForestRegressor(**kwargs)
+    #rf = RandomForestRegressor(**kwargs)
+    rf = RandomForestRegressor(warm_start=False, n_estimators= 100, n_jobs=100)
 
     for o, gridpoints in enumerate(np.array_split(obspoints, 30)): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
 
-        X_train = pred_obs.where(pred_obs.obspoints.isin(gridpoints), drop=True)
-        y_train = mrso_obs.where(pred_obs.obspoints.isin(gridpoints), drop=True)
-        X_test = pred_obs.where(~pred_obs.obspoints.isin(gridpoints), drop=True)
-        y_test = mrso_obs.where(~pred_obs.obspoints.isin(gridpoints), drop=True)
+        X_train = pred_obs.where(~pred_obs.obspoints.isin(gridpoints), drop=True)
+        y_train = mrso_obs.where(~pred_obs.obspoints.isin(gridpoints), drop=True)
+        X_test = pred_obs.where(pred_obs.obspoints.isin(gridpoints), drop=True)
+        y_test = mrso_obs.where(pred_obs.obspoints.isin(gridpoints), drop=True)
         y_predict = xr.full_like(y_test, np.nan)
 
         rf.fit(X_train, y_train)
         y_predict[:] = rf.predict(X_test)
 
+        #y_predict = y_predict.unstack('datapoints')
+        #y_test = y_test.unstack('datapoints')
+
         corr = xr.corr(y_test, y_predict).item()
+        print(n,o, corr)
         cv_results[n,o] = corr
-        print(ntrees, o, corr)
 import IPython; IPython.embed()
