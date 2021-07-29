@@ -170,11 +170,11 @@ for n, ntrees in enumerate(ntrees_list):
               'n_jobs': ntrees, # set to number of trees
               'verbose': 0}
 
-    rf = RandomForestRegressor(**kwargs)
     #rf = RandomForestRegressor(warm_start=False, n_estimators= ntrees, n_jobs=ntrees)
 
     for o, gridpoints in enumerate(np.array_split(obspoints, 30)): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
 
+        rf = RandomForestRegressor(**kwargs)
         X_train = pred_obs.where(~pred_obs.obspoints.isin(gridpoints), drop=True)
         y_train = mrso_obs.where(~pred_obs.obspoints.isin(gridpoints), drop=True)
         X_test = pred_obs.where(pred_obs.obspoints.isin(gridpoints), drop=True)
