@@ -152,22 +152,23 @@ pred_obs = pred.isel(lat=obslat, lon=obslon)
 
 # prepare cross-val 
 cv_results = np.zeros((10,30))
-ntrees_list = [10,50,100]
+ntrees_list = [500]
+nparam_list = [0.5,0.1,10]
 
 # stack
 mrso_obs = mrso_obs.stack(datapoints=('obspoints','time'))
 pred_obs = pred_obs.stack(datapoints=('obspoints','time')).to_array().T
 
-for n, ntrees in enumerate(ntrees_list):
+for n, nparam in enumerate(nparam_list):
 
     # rf settings TODO later use GP
-    kwargs = {'n_estimators': ntrees,
-    #          'min_samples_leaf': 2, # those are all default values anyways
+    kwargs = {'n_estimators': 10,
+              'min_samples_leaf': nparam, # those are all default values anyways
     #          'max_features': 'auto', 
     #          'max_samples': None, 
     #          'bootstrap': True,
               'warm_start': False,
-              'n_jobs': ntrees, # set to number of trees
+              'n_jobs': 10, # set to number of trees
               'verbose': 0}
 
     #rf = RandomForestRegressor(warm_start=False, n_estimators= ntrees, n_jobs=ntrees)
