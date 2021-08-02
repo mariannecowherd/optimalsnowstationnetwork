@@ -2,6 +2,7 @@
 TEST
 """
 
+import random
 import cftime
 import numpy as np
 import pandas as pd
@@ -191,4 +192,38 @@ for n, nparam in enumerate(nparam_list):
         corr = xr.corr(y_test, y_predict).item()
         print(n,o, corr**2)
         cv_results[n,o] = corr**2 # calc R2, goal is 0.45-0.5
-import IPython; IPython.embed()
+
+
+# intermediate result: rf regressor with default values is the best choice
+# possible TODOs: permutation difference compute
+
+# check permutation feature importance
+quit()
+kwargs = {'n_estimators': 100,
+          'min_samples_leaf': 1, # those are all default values anyways
+          'max_features': 'auto', 
+          'max_samples': None, 
+          'bootstrap': True,
+          'warm_start': False,
+          'n_jobs': 100, # set to number of trees
+          'verbose': 0}
+rf = RandomForestRegressor(**kwargs)
+rf.fit(X_train, y_train)
+y_predict = xr.full_like(y_test, np.nan)
+y_predict[:] = rf.predict(X_test)
+corr = xr.corr(y_test, y_predict).item()
+print('baseline corr', corr**2)
+
+for i in range(X_test.shape[1]):
+    X_perm = X_test.copy(deep=True)
+    y_predict = xr.full_like(y_test, np.nan)
+    feature_permuted = X_perm[:,i].values.tolist()
+    random.shuffle(feature_permuted)
+    X_perm[:,i] = feature_permuted
+    y_predict[:] = rf.predict(X_perm)
+    corr = xr.corr(y_test, y_predict).item()
+    print(X_test.coords['variable'][i].item(), corr**2)
+    # results: this is roughly the same as the feature importance given by rf.feature_importances_ on the training dataset, suggesting we do not overfit significantly
+
+
+
