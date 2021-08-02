@@ -107,9 +107,9 @@ mrso = (mrso.groupby('time.month') - seasonal_mean)
 mrso = mrso.groupby('time.month') / seasonal_std
 #mrso = (mrso - mrso.mean()) / mrso.std()
 
-#seasonal_mean = pred.groupby('time.month').mean() # not necessary for RF and difficult for pr
+seasonal_mean = pred.groupby('time.month').mean() # not necessary for RF and difficult for pr
 #seasonal_std = pred.groupby('time.month').std()
-#pred = (pred.groupby('time.month') - seasonal_mean) 
+pred = (pred.groupby('time.month') - seasonal_mean) 
 #pred = pred.groupby('time.month') / seasonal_std
 
 #seasonal_mean = stations.groupby('time.month').mean()
@@ -153,7 +153,7 @@ pred_obs = pred.isel(lat=obslat, lon=obslon)
 # prepare cross-val 
 cv_results = np.zeros((10,30))
 ntrees_list = [500]
-nparam_list = [0.5,0.1,10]
+nparam_list = [0.1,5,1]
 
 # stack
 mrso_obs = mrso_obs.stack(datapoints=('obspoints','time'))
@@ -162,13 +162,13 @@ pred_obs = pred_obs.stack(datapoints=('obspoints','time')).to_array().T
 for n, nparam in enumerate(nparam_list):
 
     # rf settings TODO later use GP
-    kwargs = {'n_estimators': 10,
+    kwargs = {'n_estimators': 100,
               'min_samples_leaf': nparam, # those are all default values anyways
     #          'max_features': 'auto', 
     #          'max_samples': None, 
     #          'bootstrap': True,
               'warm_start': False,
-              'n_jobs': 10, # set to number of trees
+              'n_jobs': 100, # set to number of trees
               'verbose': 0}
 
     #rf = RandomForestRegressor(warm_start=False, n_estimators= ntrees, n_jobs=ntrees)
@@ -189,6 +189,6 @@ for n, nparam in enumerate(nparam_list):
         #y_test = y_test.unstack('datapoints')
 
         corr = xr.corr(y_test, y_predict).item()
-        print(n,o, corr)
-        cv_results[n,o] = corr
+        print(n,o, corr**2)
+        cv_results[n,o] = corr**2 # calc R2, goal is 0.45-0.5
 import IPython; IPython.embed()
