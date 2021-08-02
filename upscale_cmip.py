@@ -3,6 +3,7 @@ TEST
 """
 
 import cftime
+import cartopy.crs as ccrs
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -12,9 +13,6 @@ import cartopy.crs as ccrs
 from sklearn.ensemble import RandomForestRegressor
 
 # read CMIP6 files
-varnames_predictors = ['tas','tasmax','pr','hfls','rsds'] # TODO add lai, topo, lagged features, treeFrac?
-varname_predictand = 'mrso'
-
 def rename_vars(data):
     varname = list(data.keys())[0]
     _, _, modelname, _, ensemblename, _ = data.encoding['source'].split('_')
@@ -47,11 +45,8 @@ modelname = 'CanESM5'
 experimentname = 'historical'
 ensemblename = 'r1i1p1f1'
 mrso = open_cmip_suite('mrso', modelname, experimentname, ensemblename)
-tasmax = open_cmip_suite('tasmax', modelname, experimentname, ensemblename)
 tas = open_cmip_suite('tas', modelname, experimentname, ensemblename)
 pr = open_cmip_suite('pr', modelname, experimentname, ensemblename)
-hfls = open_cmip_suite('hfls', modelname, experimentname, ensemblename)
-rsds = open_cmip_suite('rsds', modelname, experimentname, ensemblename)
 
 # cut out Greenland and Antarctica
 n_greenland = regionmask.defined_regions.natural_earth.countries_110.map_keys('Greenland')
@@ -59,16 +54,46 @@ n_antarctica = regionmask.defined_regions.natural_earth.countries_110.map_keys('
 mask = regionmask.defined_regions.natural_earth.countries_110.mask(mrso)
 mrso = mrso.where((mask != n_greenland) & (mask != n_antarctica) & (~np.isnan(mask)))
 
+# create lagged features
+tas_1month = tas.copy(deep=True).shift(time=1, fill_value=0).rename('tas_1m')
+tas_2month = tas.copy(deep=True).shift(time=2, fill_value=0).rename('tas_2m')
+tas_3month = tas.copy(deep=True).shift(time=3, fill_value=0).rename('tas_3m')
+tas_4month = tas.copy(deep=True).shift(time=4, fill_value=0).rename('tas_4m')
+tas_5month = tas.copy(deep=True).shift(time=5, fill_value=0).rename('tas_5m')
+tas_6month = tas.copy(deep=True).shift(time=6, fill_value=0).rename('tas_6m')
+tas_7month = tas.copy(deep=True).shift(time=7, fill_value=0).rename('tas_7m')
+tas_8month = tas.copy(deep=True).shift(time=8, fill_value=0).rename('tas_8m')
+tas_9month = tas.copy(deep=True).shift(time=9, fill_value=0).rename('tas_9m')
+tas_10month = tas.copy(deep=True).shift(time=10, fill_value=0).rename('tas_10m')
+tas_11month = tas.copy(deep=True).shift(time=11, fill_value=0).rename('tas_11m')
+tas_12month = tas.copy(deep=True).shift(time=12, fill_value=0).rename('tas_12m')
+
+pr_1month = pr.copy(deep=True).shift(time=1, fill_value=0).rename('pr_1m') 
+pr_2month = pr.copy(deep=True).shift(time=2, fill_value=0).rename('pr_2m')
+pr_3month = pr.copy(deep=True).shift(time=3, fill_value=0).rename('pr_3m')
+pr_4month = pr.copy(deep=True).shift(time=4, fill_value=0).rename('pr_4m')
+pr_5month = pr.copy(deep=True).shift(time=5, fill_value=0).rename('pr_5m')
+pr_6month = pr.copy(deep=True).shift(time=6, fill_value=0).rename('pr_6m')
+pr_7month = pr.copy(deep=True).shift(time=7, fill_value=0).rename('pr_7m')
+pr_8month = pr.copy(deep=True).shift(time=8, fill_value=0).rename('pr_8m')
+pr_9month = pr.copy(deep=True).shift(time=9, fill_value=0).rename('pr_9m')
+pr_10month = pr.copy(deep=True).shift(time=10, fill_value=0).rename('pr_10m')
+pr_11month = pr.copy(deep=True).shift(time=11, fill_value=0).rename('pr_11m')
+pr_12month = pr.copy(deep=True).shift(time=12, fill_value=0).rename('pr_12m')
+
 # merge predictors into one dataset 
-pred = xr.merge([tasmax,tas,pr,hfls,rsds])
+pred = xr.merge([tas, tas_1month, tas_2month, tas_3month, tas_4month, tas_5month, tas_6month,
+                 tas_7month, tas_8month, tas_9month, tas_10month, tas_11month, tas_12month,
+                 pr, pr_1month, pr_2month, pr_3month, pr_4month, pr_5month, pr_6month,
+                 pr_7month, pr_8month, pr_9month, pr_10month, pr_11month, pr_12month])
 
 # select timerange of ismn
 mrso = mrso.sel(time=slice('1960','2014'))
 pred = pred.sel(time=slice('1960','2014'))
 
 # not sure why this is necessary # TODO
-mrso = mrso.resample(time='1M').mean()
-pred = pred.resample(time='1M').mean()
+#mrso = mrso.resample(time='1M').mean()
+#pred = pred.resample(time='1M').mean()
 
 # read station data
 largefilepath = '/net/so4/landclim/bverena/large_files/'
@@ -82,11 +107,10 @@ seasonal_std = mrso.groupby('time.month').std()
 mrso = (mrso.groupby('time.month') - seasonal_mean) 
 mrso = mrso.groupby('time.month') / seasonal_std
 
-seasonal_mean = pred.groupby('time.month').mean()
-seasonal_std = pred.groupby('time.month').std()
-seasonal_std['rsds'] = seasonal_std['rsds'].where(seasonal_std['rsds'] != 0,1) # zero sh in in high lat winter leads to nan values
+seasonal_mean = pred.groupby('time.month').mean() # for reasoning see crossval file
+#seasonal_std = pred.groupby('time.month').std()
 pred = (pred.groupby('time.month') - seasonal_mean) 
-pred = pred.groupby('time.month') / seasonal_std
+#pred = pred.groupby('time.month') / seasonal_std
 
 seasonal_mean = stations.groupby('time.month').mean()
 seasonal_std = stations.groupby('time.month').std()
@@ -99,20 +123,31 @@ obsmask = xr.full_like(landmask, False)
 unobsmask = landmask.copy(deep=True)
 lat_cmip = []
 lon_cmip = []
+latlon_cmip = []
 for lat, lon in zip(stations.lat, stations.lon):
     point = landmask.sel(lat=lat, lon=lon, method='nearest')
-    
-    if landmask.loc[point.lat,point.lon].item(): # obs gridpoint if station contained and on CMIP land
-        obsmask.loc[point.lat, point.lon] = True
-    unobsmask.loc[point.lat, point.lon] = False
 
+    unobsmask.loc[point.lat, point.lon] = False
 
     lat_cmip.append(point.lat.item())
     lon_cmip.append(point.lon.item())
+    
+    if landmask.loc[point.lat,point.lon].item(): # obs gridpoint if station contained and on CMIP land
+        obsmask.loc[point.lat, point.lon] = True
+        latlon_cmip.append(f'{point.lat.item()} {point.lon.item()}')
+    else:
+        latlon_cmip.append('ocean')
+    #else:
+    #    stations = stations.where((stations.lat != lat) & (stations.lon != lon), drop=True) # station is in ocean, remove
+
 stations = stations.assign_coords(lat_cmip=('stations',lat_cmip))
 stations = stations.assign_coords(lon_cmip=('stations',lon_cmip))
+stations_copy = stations.copy(deep=True)
+stations = stations.assign_coords(latlon_cmip=('stations',latlon_cmip))
+stations = stations.groupby('latlon_cmip').mean()
+stations = stations.drop_sel(latlon_cmip='ocean')
 
-# divide into obs and unobs data
+# divide into obs and unobs gridpoints
 obslat, obslon = np.where(obsmask)
 obslat, obslon = xr.DataArray(obslat, dims='obspoints'), xr.DataArray(obslon, dims='obspoints')
 
@@ -125,36 +160,77 @@ unobslat, unobslon = xr.DataArray(unobslat, dims='unobspoints'), xr.DataArray(un
 mrso_unobs = mrso.isel(lat=unobslat, lon=unobslon)
 pred_unobs = pred.isel(lat=unobslat, lon=unobslon)
 
-# flatten to skikit-learn digestable table
-X_train = pred_obs.stack(datapoints=('obspoints','time')).to_array().T
-y_train = mrso_obs.stack(datapoints=('obspoints','time'))
+# move unobs times of obs gridpoints into unobs
+mrso_obstime = mrso_obs.where(~np.isnan(stations.values))
+mrso_unobstime = mrso_obs.where(np.isnan(stations.values)) 
 
-X_test = pred_unobs.stack(datapoints=('unobspoints','time')).to_array().T
-y_predict = mrso_unobs.stack(datapoints=('unobspoints','time'))
+pred_obstime = pred_obs.where(~np.isnan(stations.values))
+pred_unobstime = pred_obs.where(np.isnan(stations.values)) 
+
+# flatten to skikit-learn digestable table 
+mrso_obstime = mrso_obstime.stack(datapoints=('obspoints','time'))
+pred_obstime = pred_obstime.stack(datapoints=('obspoints','time')).to_array().T
+
+mrso_unobstime = mrso_unobstime.stack(datapoints=('obspoints','time'))
+pred_unobstime = pred_unobstime.stack(datapoints=('obspoints','time')).to_array().T
+
+pred_unobs = pred_unobs.stack(datapoints=('unobspoints','time')).to_array().T
+mrso_unobs = mrso_unobs.stack(datapoints=('unobspoints','time'))
+
+# remove nans from dataset
+mrso_obstime = mrso_obstime.where(~np.isnan(mrso_obstime), drop=True)
+pred_obstime = pred_obstime.where(~np.isnan(mrso_obstime), drop=True)
+
+mrso_unobstime = mrso_unobstime.where(~np.isnan(mrso_unobstime), drop=True)
+pred_unobstime = pred_unobstime.where(~np.isnan(mrso_unobstime), drop=True)
+
+# define test and training dataset
+# TODO check that concat mixes the datapoints correctly
+y_test = xr.concat([mrso_unobs, mrso_unobstime], dim='datapoints', coords='all')
+X_test = xr.concat([pred_unobs, pred_unobstime], dim='datapoints', coords='all')
+
+y_train = mrso_obstime
+X_train = pred_obstime
+
+#X_train = pred_obs.stack(datapoints=('obspoints','time')).to_array().T
+#y_train = mrso_obs.stack(datapoints=('obspoints','time'))
+#
+#X_test = pred_unobs.stack(datapoints=('unobspoints','time')).to_array().T
+#y_test = mrso_unobs.stack(datapoints=('unobspoints','time'))
+y_predict = xr.full_like(y_test, np.nan)
 
 # rf settings TODO later use GP
-n_trees = 100
-kwargs = {'n_estimators': n_trees,
-          'min_samples_leaf': 2,
+kwargs = {'n_estimators': 100,
+          'min_samples_leaf': 1, # those are all default values anyways
           'max_features': 'auto', 
           'max_samples': None, 
           'bootstrap': True,
-          'warm_start': True,
-          'n_jobs': None, # set to number of trees
+          'warm_start': False,
+          'n_jobs': 100, # set to number of trees
           'verbose': 0}
 
 #res = xr.full_like(mrso_unobs.sel(time=slice('1979','2015')), np.nan)
 rf = RandomForestRegressor(**kwargs)
 rf.fit(X_train, y_train)
 y_predict[:] = rf.predict(X_test)
+print('ISMN performance in past', xr.corr(y_predict, y_test).item()**2)
 
 # back to worldmap
-y_predict = y_predict.unstack('datapoints').T
-y_train = y_train.unstack('datapoints').T
+y_unobs = y_predict[:mrso_unobs.size]
+y_unobstime = y_predict[mrso_unobs.size:]
+
+y_unobs = y_unobs.unstack('datapoints').T
+y_obs = xr.concat([mrso_obstime, y_unobstime], dim='datapoints', coords='all')
+y_obs = y_obs.unstack('datapoints').T
+
 mrso_pred = xr.full_like(mrso, np.nan)
+mrso_pred.values[:,unobslat,unobslon] = y_unobs
+mrso_pred.values[:,obslat,obslon] = y_obs
 import IPython; IPython.embed()
-mrso_pred.values[:,unobslat,unobslon] = y_predict
-mrso_pred.values[:,obslat,obslon] = y_train
+
+proj = ccrs.PlateCarree()
+fig = plt.figure(figsize=(50,8))
+ax1 = fig.add_subplot(131, projection=proj)
 
 # save as netcdf
 mrso_pred.to_netcdf(f'{largefilepath}mrso_pred_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
