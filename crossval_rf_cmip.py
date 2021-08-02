@@ -108,8 +108,8 @@ mrso = (mrso.groupby('time.month') - seasonal_mean)
 mrso = mrso.groupby('time.month') / seasonal_std
 #mrso = (mrso - mrso.mean()) / mrso.std()
 
-seasonal_mean = pred.groupby('time.month').mean() # not necessary for RF and difficult for pr
-#seasonal_std = pred.groupby('time.month').std()
+seasonal_mean = pred.groupby('time.month').mean() 
+#seasonal_std = pred.groupby('time.month').std() # std is difficult for pr, but removing seasonal cycle is upping scores so definitely keep
 pred = (pred.groupby('time.month') - seasonal_mean) 
 #pred = pred.groupby('time.month') / seasonal_std
 
@@ -154,7 +154,7 @@ pred_obs = pred.isel(lat=obslat, lon=obslon)
 # prepare cross-val 
 cv_results = np.zeros((10,30))
 ntrees_list = [500]
-nparam_list = [0.1,5,1]
+nparam_list = [1]
 
 # stack
 mrso_obs = mrso_obs.stack(datapoints=('obspoints','time'))
@@ -192,6 +192,7 @@ for n, nparam in enumerate(nparam_list):
         corr = xr.corr(y_test, y_predict).item()
         print(n,o, corr**2)
         cv_results[n,o] = corr**2 # calc R2, goal is 0.45-0.5
+import IPython; IPython.embed()
 
 
 # intermediate result: rf regressor with default values is the best choice
