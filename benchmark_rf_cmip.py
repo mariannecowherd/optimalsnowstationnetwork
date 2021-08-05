@@ -3,6 +3,7 @@ TEST
 """
 
 import cftime
+import concurrent
 import cartopy.crs as ccrs
 import numpy as np
 import pandas as pd
@@ -121,30 +122,53 @@ pred_land = pred_land.stack(datapoints=('landpoints','time')).to_array().T
 
 # rf settings TODO later use GP
 kwargs = {'n_estimators': 10, # TODO 100 this is debug
-          'min_samples_leaf': 1, # those are all default values anyways
-#          'max_features': 'auto', 
-#          'max_samples': None, 
-#          'bootstrap': True,
+          'min_samples_leaf': 10, # those are all default values anyways
+          'max_features': 'sqrt', 
+          'max_samples': 0.5, 
+          'bootstrap': True,
           'warm_start': False,
-          'n_jobs': 100, # set to number of trees
+          'n_jobs': 10, # set to number of trees
           'verbose': 0}
 
+def fit(rf, X_train, y_train, g):
+    print(f'{g} started')
+    rf.fit(X_train, y_train)
+    print(f'{g} ended')
+    return rf
+
+max_workers = 20
+import IPython; IPython.embed()
+with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    results = []
+    for g, gridpoint in enumerate(landpoints): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
+
+        rf = RandomForestRegressor(**kwargs)
+        X_train = pred_land.where(pred_land.landpoints != gridpoint, drop=True)
+        y_train = mrso_land.where(pred_land.landpoints != gridpoint, drop=True)
+        X_test = pred_land.where(pred_land.landpoints == gridpoint, drop=True)
+        y_test = mrso_land.where(pred_land.landpoints == gridpoint, drop=True)
+        y_predict = xr.full_like(y_test, np.nan)
+
+        results.append(executor.submit(rf.fit, X_train=X_train, y_train=y_train))
+        print(f'{g} submitted')
+        #rf.fit(X_train, y_train)
+
 mrso_pred = xr.full_like(mrso, np.nan)
+for g, (gridpoint, res) in enumerate(zip(landpoints, results)):
+    
+    rf = result.result()
 
-for g, gridpoint in enumerate(landpoints): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
-
-    rf = RandomForestRegressor(**kwargs)
-    X_train = pred_land.where(pred_land.landpoints != gridpoint, drop=True)
-    y_train = mrso_land.where(pred_land.landpoints != gridpoint, drop=True)
     X_test = pred_land.where(pred_land.landpoints == gridpoint, drop=True)
     y_test = mrso_land.where(pred_land.landpoints == gridpoint, drop=True)
-    y_predict = xr.full_like(y_test, np.nan)
 
-    rf.fit(X_train, y_train)
     y_predict[:] = rf.predict(X_test)
+
 
     corr = xr.corr(y_test, y_predict).item()
     print(g, corr**2)
 
     # save crossval results as "upper benchmark" # alternative: leave-one-gridpoint-out, train on whole data and test on whole data
     mrso_pred.loc[:,y_predict.lat,y_predict.lon] = y_predict
+
+import IPython; IPython.embed()
+mrso_pred.to_netcdf(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
