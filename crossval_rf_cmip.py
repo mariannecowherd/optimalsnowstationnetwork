@@ -173,6 +173,7 @@ for n, nparam in enumerate(nparam_list):
               'verbose': 0}
 
     #rf = RandomForestRegressor(warm_start=False, n_estimators= ntrees, n_jobs=ntrees)
+    mrso_pred = xr.full_like(mrso, np.nan)
 
     for o, gridpoints in enumerate(np.array_split(obspoints, 30)): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
 
@@ -192,8 +193,13 @@ for n, nparam in enumerate(nparam_list):
         corr = xr.corr(y_test, y_predict).item()
         print(n,o, corr**2)
         cv_results[n,o] = corr**2 # calc R2, goal is 0.45-0.5
-import IPython; IPython.embed()
 
+        # save crossval results as "upper benchmark" # alternative: leave-one-gridpoint-out, train on whole data and test on whole data
+        y_predict = y_predict.unstack('datapoints').T
+        mrso_pred.loc[:,y_predict.lat,y_predict.lon] = y_predict
+
+
+import IPython; IPython.embed()
 
 # intermediate result: rf regressor with default values is the best choice
 # possible TODOs: permutation difference compute
