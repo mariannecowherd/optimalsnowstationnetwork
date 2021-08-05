@@ -22,7 +22,7 @@ def rename_vars(data):
     except ValueError:
         pass
     #data = data.drop_dims('height')
-    if isinstance(data.time[0].item(), cftime._cftime.DatetimeNoLeap):
+    if isinstance(data.time[0].item(), cftime._cftime.DatetimeNoLeap): # TODO add in again once several models used
         data['time'] = data.indexes['time'].to_datetimeindex()
     if isinstance(data.time[0].item(), cftime._cftime.Datetime360Day):
         data['time'] = data.indexes['time'].to_datetimeindex()
@@ -161,11 +161,15 @@ mrso_unobs = mrso.isel(lat=unobslat, lon=unobslon)
 pred_unobs = pred.isel(lat=unobslat, lon=unobslon)
 
 # move unobs times of obs gridpoints into unobs
-mrso_obstime = mrso_obs.where(~np.isnan(stations.values))
-mrso_unobstime = mrso_obs.where(np.isnan(stations.values)) 
+mrso_obstime = mrso_obs.copy(deep=True)
+mrso_obstime = mrso_obstime.where(~np.isnan(stations.values))
+mrso_unobstime = mrso_obs.copy(deep=True)
+mrso_unobstime = mrso_unobstime.where(np.isnan(stations.values)) 
 
-pred_obstime = pred_obs.where(~np.isnan(stations.values))
-pred_unobstime = pred_obs.where(np.isnan(stations.values)) 
+pred_obstime = pred_obs.copy(deep=True)
+pred_obstime = pred_obstime.where(~np.isnan(stations.values))
+pred_unobstime = pred_obs.copy(deep=True)
+pred_unobstime = pred_unobstime.where(np.isnan(stations.values)) 
 
 # flatten to skikit-learn digestable table 
 mrso_obstime = mrso_obstime.stack(datapoints=('obspoints','time'))
@@ -186,8 +190,19 @@ pred_unobstime = pred_unobstime.where(~np.isnan(mrso_unobstime), drop=True)
 
 # define test and training dataset
 # TODO check that concat mixes the datapoints correctly
-y_test = xr.concat([mrso_unobs, mrso_unobstime], dim='datapoints', coords='all')
-X_test = xr.concat([pred_unobs, pred_unobstime], dim='datapoints', coords='all')
+# solution currently without stack/unstack because xr.concat seems to mix up the order of datapoints and indexing them is non-trivial
+#y_test = xr.DataArray(np.full((mrso_unobs.size + mrso_unobstime.size), np.nan))
+#X_test = xr.DataArray(np.full((mrso_unobs.size + mrso_unobstime.size, pred_unobs.shape[1]), np.nan))
+#y_test[:mrso_unobs.size] = mrso_unobs
+#y_test[mrso_unobs.size:] = mrso_unobstime
+#X_test[:mrso_unobs.size,:] = pred_unobs
+#X_test[mrso_unobs.size:,:] = pred_unobstime
+#y_test = xr.concat([mrso_unobs, mrso_unobstime], dim='datapoints', coords='all')
+#X_test = xr.concat([pred_unobs, pred_unobstime], dim='datapoints', coords='all')
+y_test_unobs = mrso_unobs
+X_test_unobs = pred_unobs
+y_test_unobstime = mrso_unobstime
+X_test_unobstime = pred_unobstime
 
 y_train = mrso_obstime
 X_train = pred_obstime
@@ -197,7 +212,6 @@ X_train = pred_obstime
 #
 #X_test = pred_unobs.stack(datapoints=('unobspoints','time')).to_array().T
 #y_test = mrso_unobs.stack(datapoints=('unobspoints','time'))
-y_predict = xr.full_like(y_test, np.nan)
 
 # rf settings TODO later use GP
 kwargs = {'n_estimators': 100,
@@ -212,25 +226,36 @@ kwargs = {'n_estimators': 100,
 #res = xr.full_like(mrso_unobs.sel(time=slice('1979','2015')), np.nan)
 rf = RandomForestRegressor(**kwargs)
 rf.fit(X_train, y_train)
-y_predict[:] = rf.predict(X_test)
-print('ISMN performance in past', xr.corr(y_predict, y_test).item()**2)
+
+y_predict_unobs = xr.full_like(y_test_unobs, np.nan)
+y_predict_unobs[:] = rf.predict(X_test_unobs)
+
+y_predict_unobstime = xr.full_like(y_test_unobstime, np.nan)
+y_predict_unobstime[:] = rf.predict(X_test_unobstime)
+print('upscale R2 in unobserved gridpoints', xr.corr(y_predict_unobs, y_test_unobs).item()**2)
+print('upscale R2 in unobserved timepoints', xr.corr(y_predict_unobstime, y_test_unobstime).item()**2)
 
 # back to worldmap
-y_unobs = y_predict[:mrso_unobs.size]
-y_unobstime = y_predict[mrso_unobs.size:]
+#y_unobs = y_predict[:mrso_unobs.size]
+#y_unobstime = y_predict[mrso_unobs.size:]
 
-y_unobs = y_unobs.unstack('datapoints').T
-y_obs = xr.concat([mrso_obstime, y_unobstime], dim='datapoints', coords='all')
-y_obs = y_obs.unstack('datapoints').T
+#y_unobs = y_unobs.unstack('datapoints').T
+#y_obs = xr.concat([mrso_obstime, y_unobstime], dim='datapoints', coords='all')
+#y_obs = y_obs.unstack('datapoints').T
+#y_obs = xr.DataArray(np.full((mrso_obstime.size + y_unobstime.size), np.nan))
+#y_obs[:mrso_obstime.size] = mrso_obstime
+#y_obs[mrso_obstime.size:] = y_unobstime
 
 mrso_pred = xr.full_like(mrso, np.nan)
-mrso_pred.values[:,unobslat,unobslon] = y_unobs
-mrso_pred.values[:,obslat,obslon] = y_obs
-import IPython; IPython.embed()
+mrso_pred.values[:,unobslat,unobslon] = y_predict_unobs.unstack('datapoints').T
+#mrso_pred.values[:,unobslat,unobslon] = y_unobs.values.reshape((660,1864)) # or other way round? # no because zero correlation if other way around # this way around is correct in space but not yet in time
+mrso_pred.values[:,obslat,obslon] = y_predict_unobstime.unstack('datapoints').T
+mrso_pred = mrso_pred.fillna(mrso) # observed points fill in
+print('upscale R2 in whole dataset', xr.corr(mrso, mrso_pred).item()**2)
 
-proj = ccrs.PlateCarree()
-fig = plt.figure(figsize=(50,8))
-ax1 = fig.add_subplot(131, projection=proj)
+#proj = ccrs.PlateCarree()
+#fig = plt.figure()
+#ax = fig.add_subplot(111, projection=proj)
 
 # save as netcdf
 mrso_pred.to_netcdf(f'{largefilepath}mrso_pred_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
