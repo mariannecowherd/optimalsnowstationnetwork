@@ -127,50 +127,86 @@ kwargs = {'n_estimators': 100, # TODO 100 this is debug
           'max_samples': None, 
           'bootstrap': True,
           'warm_start': False,
-          'n_jobs': 5, # set to number of trees
+          'n_jobs': 50, # set to number of trees
           'verbose': 0}
 
-def fit(rf, X_train, y_train, g):
-    #print(f'{g} started')
+#mrso_pred = xr.full_like(mrso, np.nan)
+largefilepath = '/net/so4/landclim/bverena/large_files/'
+#mrso_pred = xr.open_dataset(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
+
+for g, gridpoint in enumerate(landpoints): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
+
+    # check if gridpoint is already computed
+    lat, lon = mrso_land.sel(landpoints=gridpoint).lat[0].item(), mrso_land.sel(landpoints=gridpoint).lon[0].item()
+    if ~np.isnan(mrso_pred.loc[:,lat,lon][0].item()):
+        #print(mrso_pred.loc[:,lat,lon][0].item())
+        print(f'gridpoint {g} is already computed, skip')
+        continue # this point is already computed, skip
+    else:
+        #print(mrso_pred.loc[:,lat,lon][0].item())
+        print(f'gridpoint {g} is not yet computed, continue')
+        
+    X_test = pred_land.sel(landpoints=gridpoint)
+    y_test = mrso_land.sel(landpoints=gridpoint)
+    X_train = pred_land.where(pred_land.landpoints != gridpoint, drop=True)
+    y_train = mrso_land.where(pred_land.landpoints != gridpoint, drop=True)
+
+    rf = RandomForestRegressor(**kwargs)
     rf.fit(X_train, y_train)
-    print(f'{g} ended')
-    return rf
-
-max_workers = 30
-with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-    results = []
-    for g, gridpoint in enumerate(landpoints): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
-
-        rf = RandomForestRegressor(**kwargs)
-        X_train = pred_land.where(pred_land.landpoints != gridpoint, drop=True)
-        y_train = mrso_land.where(pred_land.landpoints != gridpoint, drop=True)
-        #X_test = pred_land.where(pred_land.landpoints == gridpoint, drop=True)
-        #y_test = mrso_land.where(pred_land.landpoints == gridpoint, drop=True)
-    
-        #fit(rf, X_train, y_train, g) 
-        results.append(executor.submit(fit, rf, X_train, y_train, g))
-        print(f'{g} submitted')
-        #rf.fit(X_train, y_train)
-        if g > 10:
-            break
-
-mrso_pred = xr.full_like(mrso, np.nan)
-for g, (gridpoint, res) in enumerate(zip(landpoints, results)):
-    
-    rf = results[g].result()
-
-    X_test = pred_land.where(pred_land.landpoints == gridpoint, drop=True)
-    y_test = mrso_land.where(pred_land.landpoints == gridpoint, drop=True)
 
     y_predict = xr.full_like(y_test, np.nan)
     y_predict[:] = rf.predict(X_test)
 
-
     corr = xr.corr(y_test, y_predict).item()
     print(g, corr**2)
 
-    # save crossval results as "upper benchmark" # alternative: leave-one-gridpoint-out, train on whole data and test on whole data
-    mrso_pred.loc[:,y_predict.lat,y_predict.lon] = y_predict
+    y_predict.to_netcdf(f'{largefilepath}mrso_benchmark_{g}_{modelname}_{experimentname}_{ensemblename}.nc')
 
-import IPython; IPython.embed()
-mrso_pred.to_netcdf(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
+    # save crossval results as "upper benchmark" # alternative: leave-one-gridpoint-out, train on whole data and test on whole data
+    #mrso_pred.loc[:,y_predict.lat,y_predict.lon] = y_predict
+    #mrso_pred.loc[:,lat,lon] = y_predict
+    #mrso_pred.to_netcdf(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
+
+# old parallel code
+#def fit(rf, X_train, y_train, g):
+#    #print(f'{g} started')
+#    rf.fit(X_train, y_train)
+#    print(f'{g} ended')
+#    return rf
+#
+#max_workers = 30
+#with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+#    results = []
+#    for g, gridpoint in enumerate(landpoints): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
+#
+#        rf = RandomForestRegressor(**kwargs)
+#        X_train = pred_land.where(pred_land.landpoints != gridpoint, drop=True)
+#        y_train = mrso_land.where(pred_land.landpoints != gridpoint, drop=True)
+#        #X_test = pred_land.where(pred_land.landpoints == gridpoint, drop=True)
+#        #y_test = mrso_land.where(pred_land.landpoints == gridpoint, drop=True)
+#    
+#        #fit(rf, X_train, y_train, g) 
+#        results.append(executor.submit(fit, rf, X_train, y_train, g))
+#        print(f'{g} submitted')
+#        #rf.fit(X_train, y_train)
+#        if g > 10:
+#            break
+#
+#mrso_pred = xr.full_like(mrso, np.nan)
+#for g, (gridpoint, res) in enumerate(zip(landpoints, results)):
+#    
+#    rf = results[g].result()
+#
+#    X_test = pred_land.where(pred_land.landpoints == gridpoint, drop=True)
+#    y_test = mrso_land.where(pred_land.landpoints == gridpoint, drop=True)
+#
+#    y_predict = xr.full_like(y_test, np.nan)
+#    y_predict[:] = rf.predict(X_test)
+#
+#
+#    corr = xr.corr(y_test, y_predict).item()
+#    print(g, corr**2)
+#
+#    # save crossval results as "upper benchmark" # alternative: leave-one-gridpoint-out, train on whole data and test on whole data
+#    mrso_pred.loc[:,y_predict.lat,y_predict.lon] = y_predict
+#
