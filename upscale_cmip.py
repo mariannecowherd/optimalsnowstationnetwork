@@ -102,10 +102,10 @@ stations = stations['__xarray_dataarray_variable__']
 stations = stations.sel(time=slice('1960','2014'))
 
 # calculate deseasonalised anomaly 
-seasonal_mean = mrso.groupby('time.month').mean()
-seasonal_std = mrso.groupby('time.month').std()
-mrso = (mrso.groupby('time.month') - seasonal_mean) 
-mrso = mrso.groupby('time.month') / seasonal_std
+mrso_seasonal_mean = mrso.groupby('time.month').mean()
+mrso_seasonal_std = mrso.groupby('time.month').std()
+mrso = (mrso.groupby('time.month') - mrso_seasonal_mean) 
+mrso = mrso.groupby('time.month') / mrso_seasonal_std
 
 seasonal_mean = pred.groupby('time.month').mean() # for reasoning see crossval file
 #seasonal_std = pred.groupby('time.month').std()
@@ -256,6 +256,13 @@ print('upscale R2 in whole dataset', xr.corr(mrso, mrso_pred).item()**2)
 #proj = ccrs.PlateCarree()
 #fig = plt.figure()
 #ax = fig.add_subplot(111, projection=proj)
+
+# renormalise 
+mrso = (mrso.groupby('time.month') * mrso_seasonal_std)
+mrso = (mrso.groupby('time.month') + mrso_seasonal_mean) 
+
+mrso_pred = (mrso_pred.groupby('time.month') * mrso_seasonal_std)
+mrso_pred = (mrso_pred.groupby('time.month') + mrso_seasonal_mean) 
 
 # save as netcdf
 mrso_pred.to_netcdf(f'{largefilepath}mrso_pred_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
