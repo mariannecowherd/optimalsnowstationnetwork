@@ -121,23 +121,22 @@ mrso_land = mrso_land.stack(datapoints=('landpoints','time'))
 pred_land = pred_land.stack(datapoints=('landpoints','time')).to_array().T
 
 # rf settings TODO later use GP
-kwargs = {'n_estimators': 10, # TODO 100 this is debug
-          'min_samples_leaf': 10, # those are all default values anyways
-          'max_features': 'sqrt', 
-          'max_samples': 0.5, 
+kwargs = {'n_estimators': 100, # TODO 100 this is debug
+          'min_samples_leaf': 1, # those are all default values anyways
+          'max_features': 'auto', 
+          'max_samples': None, 
           'bootstrap': True,
           'warm_start': False,
-          'n_jobs': 10, # set to number of trees
+          'n_jobs': 5, # set to number of trees
           'verbose': 0}
 
 def fit(rf, X_train, y_train, g):
-    print(f'{g} started')
+    #print(f'{g} started')
     rf.fit(X_train, y_train)
     print(f'{g} ended')
     return rf
 
-max_workers = 20
-import IPython; IPython.embed()
+max_workers = 30
 with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
     results = []
     for g, gridpoint in enumerate(landpoints): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
@@ -145,22 +144,25 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         rf = RandomForestRegressor(**kwargs)
         X_train = pred_land.where(pred_land.landpoints != gridpoint, drop=True)
         y_train = mrso_land.where(pred_land.landpoints != gridpoint, drop=True)
-        X_test = pred_land.where(pred_land.landpoints == gridpoint, drop=True)
-        y_test = mrso_land.where(pred_land.landpoints == gridpoint, drop=True)
-        y_predict = xr.full_like(y_test, np.nan)
-
-        results.append(executor.submit(rf.fit, X_train=X_train, y_train=y_train))
+        #X_test = pred_land.where(pred_land.landpoints == gridpoint, drop=True)
+        #y_test = mrso_land.where(pred_land.landpoints == gridpoint, drop=True)
+    
+        #fit(rf, X_train, y_train, g) 
+        results.append(executor.submit(fit, rf, X_train, y_train, g))
         print(f'{g} submitted')
         #rf.fit(X_train, y_train)
+        if g > 10:
+            break
 
 mrso_pred = xr.full_like(mrso, np.nan)
 for g, (gridpoint, res) in enumerate(zip(landpoints, results)):
     
-    rf = result.result()
+    rf = results[g].result()
 
     X_test = pred_land.where(pred_land.landpoints == gridpoint, drop=True)
     y_test = mrso_land.where(pred_land.landpoints == gridpoint, drop=True)
 
+    y_predict = xr.full_like(y_test, np.nan)
     y_predict[:] = rf.predict(X_test)
 
 
