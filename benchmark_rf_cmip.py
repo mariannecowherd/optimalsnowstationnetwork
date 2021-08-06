@@ -132,18 +132,23 @@ kwargs = {'n_estimators': 100, # TODO 100 this is debug
 
 #mrso_pred = xr.full_like(mrso, np.nan)
 largefilepath = '/net/so4/landclim/bverena/large_files/'
+from os.path import exists
 #mrso_pred = xr.open_dataset(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
 
 for g, gridpoint in enumerate(landpoints): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
 
     # check if gridpoint is already computed
-    lat, lon = mrso_land.sel(landpoints=gridpoint).lat[0].item(), mrso_land.sel(landpoints=gridpoint).lon[0].item()
-    if ~np.isnan(mrso_pred.loc[:,lat,lon][0].item()):
-        #print(mrso_pred.loc[:,lat,lon][0].item())
+    #lat, lon = mrso_land.sel(landpoints=gridpoint).lat[0].item(), mrso_land.sel(landpoints=gridpoint).lon[0].item()
+    #if ~np.isnan(mrso_pred.loc[:,lat,lon][0].item()):
+    #    #print(mrso_pred.loc[:,lat,lon][0].item())
+    #    print(f'gridpoint {g} is already computed, skip')
+    #    continue # this point is already computed, skip
+    #else:
+    #    #print(mrso_pred.loc[:,lat,lon][0].item())
+    #    print(f'gridpoint {g} is not yet computed, continue')
+    if exists(f'{largefilepath}mrso_benchmark_{g}_{modelname}_{experimentname}_{ensemblename}.nc'):
         print(f'gridpoint {g} is already computed, skip')
-        continue # this point is already computed, skip
     else:
-        #print(mrso_pred.loc[:,lat,lon][0].item())
         print(f'gridpoint {g} is not yet computed, continue')
         
     X_test = pred_land.sel(landpoints=gridpoint)
