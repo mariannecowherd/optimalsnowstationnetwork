@@ -124,6 +124,7 @@ pred_land = pred_land.stack(datapoints=('landpoints','time')).to_array().T
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 mrso_land.reset_index('datapoints').to_netcdf(f'{largefilepath}mrso_land.nc')
 pred_land.reset_index('datapoints').to_netcdf(f'{largefilepath}pred_land.nc')
+mrso.to_netcdf(f'{largefilepath}mrso_test.nc')
 
 # rf settings TODO later use GP
 kwargs = {'n_estimators': 100, # TODO 100 this is debug
