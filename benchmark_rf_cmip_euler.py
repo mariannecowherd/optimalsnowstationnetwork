@@ -11,9 +11,17 @@ import regionmask
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 
+import argparse
+
+# read gridpoint info
+parser = argparse.ArgumentParser()
+parser.add_argument('--gridpoint', '-g', dest='g', type=int)
+args = parser.parse_args()
+gridpoint = args.g
+
 # load feature tables
 largefilepath = '/cluster/work/climate/bverena/'
-#largefilepath = '/net/so4/landclim/bverena/large_files/'
+largefilepath = '/net/so4/landclim/bverena/large_files/'
 mrso_land = xr.open_dataset(f'{largefilepath}mrso_land.nc')['mrso'].load()
 pred_land = xr.open_dataset(f'{largefilepath}pred_land.nc')['__xarray_dataarray_variable__'].load()
 
@@ -36,27 +44,24 @@ modelname = 'CanESM5'
 experimentname = 'historical'
 ensemblename = 'r1i1p1f1'
 
-for g, gridpoint in enumerate(landpoints): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
-
-    if exists(f'{largefilepath}mrso_benchmark_{g}_{modelname}_{experimentname}_{ensemblename}.nc'):
-        print(f'gridpoint {g} is already computed, skip')
-        continue
-    else:
-        print(f'gridpoint {g} is not yet computed, continue')
-        
-    X_test = pred_land.sel(landpoints=gridpoint)
-    y_test = mrso_land.sel(landpoints=gridpoint)
-    X_train = pred_land.where(pred_land.landpoints != gridpoint, drop=True)
-    y_train = mrso_land.where(pred_land.landpoints != gridpoint, drop=True)
-
-    rf = RandomForestRegressor(**kwargs)
-    rf.fit(X_train, y_train)
-
-    y_predict = xr.full_like(y_test, np.nan)
-    y_predict[:] = rf.predict(X_test)
-
-    corr = xr.corr(y_test, y_predict).item()
-    print(g, corr**2)
-
-    y_predict.to_netcdf(f'{largefilepath}mrso_benchmark_{g}_{modelname}_{experimentname}_{ensemblename}.nc')
+if exists(f'{largefilepath}mrso_benchmark_{gridpoint}_{modelname}_{experimentname}_{ensemblename}.nc'):
+    print(f'gridpoint {gridpoint} is already computed, skip')
     quit()
+else:
+    print(f'gridpoint {gridpoint} is not yet computed, continue')
+    
+X_test = pred_land.sel(landpoints=gridpoint)
+y_test = mrso_land.sel(landpoints=gridpoint)
+X_train = pred_land.where(pred_land.landpoints != gridpoint, drop=True)
+y_train = mrso_land.where(pred_land.landpoints != gridpoint, drop=True)
+
+rf = RandomForestRegressor(**kwargs)
+rf.fit(X_train, y_train)
+
+y_predict = xr.full_like(y_test, np.nan)
+y_predict[:] = rf.predict(X_test)
+
+corr = xr.corr(y_test, y_predict).item()
+print(g, corr**2)
+
+y_predict.to_netcdf(f'{largefilepath}mrso_benchmark_{gridpoint}_{modelname}_{experimentname}_{ensemblename}.nc')
