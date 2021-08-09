@@ -155,6 +155,7 @@ if icalc:
         #    print(f'gridpoint {g} is not yet computed, continue')
         if exists(f'{largefilepath}mrso_benchmark_{g}_{modelname}_{experimentname}_{ensemblename}.nc'):
             print(f'gridpoint {g} is already computed, skip')
+            continue
         else:
             print(f'gridpoint {g} is not yet computed, continue')
             
