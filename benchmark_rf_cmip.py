@@ -97,10 +97,10 @@ pred = pred.sel(time=slice('1960','2014'))
 #pred = pred.resample(time='1M').mean()
 
 # calculate deseasonalised anomaly 
-seasonal_mean = mrso.groupby('time.month').mean()
-seasonal_std = mrso.groupby('time.month').std()
-mrso = (mrso.groupby('time.month') - seasonal_mean) 
-mrso = mrso.groupby('time.month') / seasonal_std
+mrso_seasonal_mean = mrso.groupby('time.month').mean()
+mrso_seasonal_std = mrso.groupby('time.month').std()
+mrso = (mrso.groupby('time.month') - mrso_seasonal_mean) 
+mrso = mrso.groupby('time.month') / mrso_seasonal_std
 
 seasonal_mean = pred.groupby('time.month').mean() # for reasoning see crossval file
 #seasonal_std = pred.groupby('time.month').std()
@@ -120,6 +120,11 @@ pred_land = pred.isel(lat=landlat, lon=landlon)
 mrso_land = mrso_land.stack(datapoints=('landpoints','time'))
 pred_land = pred_land.stack(datapoints=('landpoints','time')).to_array().T
 
+# save feature tables
+largefilepath = '/cluster/work/climate/bverena/'
+mrso_land.to_netcdf(f'{largefilepath}mrso_land.nc')
+pred_land.to_netcdf(f'{largefilepath}pred_land.nc')
+
 # rf settings TODO later use GP
 kwargs = {'n_estimators': 100, # TODO 100 this is debug
           'min_samples_leaf': 1, # those are all default values anyways
@@ -135,83 +140,52 @@ largefilepath = '/net/so4/landclim/bverena/large_files/'
 from os.path import exists
 #mrso_pred = xr.open_dataset(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
 
-for g, gridpoint in enumerate(landpoints): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
+icalc = False
+if icalc:
+    for g, gridpoint in enumerate(landpoints): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
 
-    # check if gridpoint is already computed
-    #lat, lon = mrso_land.sel(landpoints=gridpoint).lat[0].item(), mrso_land.sel(landpoints=gridpoint).lon[0].item()
-    #if ~np.isnan(mrso_pred.loc[:,lat,lon][0].item()):
-    #    #print(mrso_pred.loc[:,lat,lon][0].item())
-    #    print(f'gridpoint {g} is already computed, skip')
-    #    continue # this point is already computed, skip
-    #else:
-    #    #print(mrso_pred.loc[:,lat,lon][0].item())
-    #    print(f'gridpoint {g} is not yet computed, continue')
-    if exists(f'{largefilepath}mrso_benchmark_{g}_{modelname}_{experimentname}_{ensemblename}.nc'):
-        print(f'gridpoint {g} is already computed, skip')
-    else:
-        print(f'gridpoint {g} is not yet computed, continue')
-        
-    X_test = pred_land.sel(landpoints=gridpoint)
-    y_test = mrso_land.sel(landpoints=gridpoint)
-    X_train = pred_land.where(pred_land.landpoints != gridpoint, drop=True)
-    y_train = mrso_land.where(pred_land.landpoints != gridpoint, drop=True)
+        # check if gridpoint is already computed
+        #lat, lon = mrso_land.sel(landpoints=gridpoint).lat[0].item(), mrso_land.sel(landpoints=gridpoint).lon[0].item()
+        #if ~np.isnan(mrso_pred.loc[:,lat,lon][0].item()):
+        #    #print(mrso_pred.loc[:,lat,lon][0].item())
+        #    print(f'gridpoint {g} is already computed, skip')
+        #    continue # this point is already computed, skip
+        #else:
+        #    #print(mrso_pred.loc[:,lat,lon][0].item())
+        #    print(f'gridpoint {g} is not yet computed, continue')
+        if exists(f'{largefilepath}mrso_benchmark_{g}_{modelname}_{experimentname}_{ensemblename}.nc'):
+            print(f'gridpoint {g} is already computed, skip')
+        else:
+            print(f'gridpoint {g} is not yet computed, continue')
+            
+        X_test = pred_land.sel(landpoints=gridpoint)
+        y_test = mrso_land.sel(landpoints=gridpoint)
+        X_train = pred_land.where(pred_land.landpoints != gridpoint, drop=True)
+        y_train = mrso_land.where(pred_land.landpoints != gridpoint, drop=True)
 
-    rf = RandomForestRegressor(**kwargs)
-    rf.fit(X_train, y_train)
+        rf = RandomForestRegressor(**kwargs)
+        rf.fit(X_train, y_train)
 
-    y_predict = xr.full_like(y_test, np.nan)
-    y_predict[:] = rf.predict(X_test)
+        y_predict = xr.full_like(y_test, np.nan)
+        y_predict[:] = rf.predict(X_test)
 
-    corr = xr.corr(y_test, y_predict).item()
-    print(g, corr**2)
+        corr = xr.corr(y_test, y_predict).item()
+        print(g, corr**2)
 
-    y_predict.to_netcdf(f'{largefilepath}mrso_benchmark_{g}_{modelname}_{experimentname}_{ensemblename}.nc')
+        y_predict.to_netcdf(f'{largefilepath}mrso_benchmark_{g}_{modelname}_{experimentname}_{ensemblename}.nc')
 
-    # save crossval results as "upper benchmark" # alternative: leave-one-gridpoint-out, train on whole data and test on whole data
-    #mrso_pred.loc[:,y_predict.lat,y_predict.lon] = y_predict
-    #mrso_pred.loc[:,lat,lon] = y_predict
-    #mrso_pred.to_netcdf(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
+else:
+    mrso_pred = xr.full_like(mrso, np.nan)
+    for g, gridpoint in enumerate(landpoints): 
+        try:
+            y_predict = xr.open_dataset(f'{largefilepath}mrso_benchmark_{g}_{modelname}_{experimentname}_{ensemblename}.nc')
+            mrso_pred.loc[:,y_predict.lat,y_predict.lon] = y_predict['mrso']
+        except FileNotFoundError:
+            continue
+        else:
+            print(f'gridpoint {g} processed')
 
-# old parallel code
-#def fit(rf, X_train, y_train, g):
-#    #print(f'{g} started')
-#    rf.fit(X_train, y_train)
-#    print(f'{g} ended')
-#    return rf
-#
-#max_workers = 30
-#with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-#    results = []
-#    for g, gridpoint in enumerate(landpoints): # random folds of observed gridpoints # LG says doesnot matter if random or regionally grouped, both has advantages and disadvantages, just do something and reason why
-#
-#        rf = RandomForestRegressor(**kwargs)
-#        X_train = pred_land.where(pred_land.landpoints != gridpoint, drop=True)
-#        y_train = mrso_land.where(pred_land.landpoints != gridpoint, drop=True)
-#        #X_test = pred_land.where(pred_land.landpoints == gridpoint, drop=True)
-#        #y_test = mrso_land.where(pred_land.landpoints == gridpoint, drop=True)
-#    
-#        #fit(rf, X_train, y_train, g) 
-#        results.append(executor.submit(fit, rf, X_train, y_train, g))
-#        print(f'{g} submitted')
-#        #rf.fit(X_train, y_train)
-#        if g > 10:
-#            break
-#
-#mrso_pred = xr.full_like(mrso, np.nan)
-#for g, (gridpoint, res) in enumerate(zip(landpoints, results)):
-#    
-#    rf = results[g].result()
-#
-#    X_test = pred_land.where(pred_land.landpoints == gridpoint, drop=True)
-#    y_test = mrso_land.where(pred_land.landpoints == gridpoint, drop=True)
-#
-#    y_predict = xr.full_like(y_test, np.nan)
-#    y_predict[:] = rf.predict(X_test)
-#
-#
-#    corr = xr.corr(y_test, y_predict).item()
-#    print(g, corr**2)
-#
-#    # save crossval results as "upper benchmark" # alternative: leave-one-gridpoint-out, train on whole data and test on whole data
-#    mrso_pred.loc[:,y_predict.lat,y_predict.lon] = y_predict
-#
+    mrso_pred = (mrso_pred.groupby('time.month') * mrso_seasonal_std)
+    mrso_pred = (mrso_pred.groupby('time.month') + mrso_seasonal_mean) 
+
+    mrso_pred.to_netcdf(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}.nc')
