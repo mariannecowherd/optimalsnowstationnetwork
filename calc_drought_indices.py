@@ -18,18 +18,77 @@ orig = xr.open_dataset(f'{largefilepath}mrso_orig_{modelname}_{experimentname}_{
 pred = xr.open_dataset(f'{largefilepath}mrso_pred_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
 benchmark = xr.open_dataset(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
 
+# normalise
+def standardised_anom(data):
+    data_seasonal_mean = data.groupby('time.month').mean()
+    data_seasonal_std = data.groupby('time.month').std()
+    data = (data.groupby('time.month') - data_seasonal_mean) 
+    data = data.groupby('time.month') / data_seasonal_std
+    return data
+
+orig = standardised_anom(orig)
+pred = standardised_anom(pred)
+benchmark = standardised_anom(benchmark)
+
+# extract 10% driest values
+orig_drought = orig.where(orig < orig.quantile(0.1))
+pred_drought = pred.where(pred < pred.quantile(0.1))
+benchmark_drought = benchmark.where(benchmark < benchmark.quantile(0.1))
+
+# plot correlation
+r2_benchmark = (xr.corr(orig, benchmark, dim='time')**2)
+r2_pred = (xr.corr(orig, pred, dim='time')**2)
+proj = ccrs.PlateCarree()
+fig = plt.figure(figsize=(10,3))
+ax1 = fig.add_subplot(131, projection=proj)
+ax2 = fig.add_subplot(132, projection=proj)
+ax3 = fig.add_subplot(133, projection=proj)
+ax1.coastlines()
+ax2.coastlines()
+ax3.coastlines()
+cbar_kwargs = {'orientation': 'horizontal', 'label': 'R2'}
+r2_benchmark.plot(ax=ax1, cmap='Greens', vmin=0, vmax=1, add_colorbar=True, cbar_kwargs=cbar_kwargs)
+r2_pred.plot(ax=ax2, cmap='Greens', vmin=0, vmax=1, add_colorbar=True, cbar_kwargs=cbar_kwargs)
+(r2_benchmark - r2_pred).plot(ax=ax3, cmap='coolwarm', vmin=-0.3, vmax=0.3, add_colorbar=True, cbar_kwargs={'orientation': 'horizontal', 'label': 'R2 (benchmark ) - R2 (pred)'})
+ax1.set_title('R2 orig ~ benchmark')
+ax2.set_title('R2 orig ~ upscaled')
+ax3.set_title('R2 diff')
+#plt.show()
+plt.savefig('r2_upscaling.png')
+
+# plot mean drought intensity
+proj = ccrs.PlateCarree()
+fig = plt.figure(figsize=(10,3))
+fig.suptitle('global distribution of 10% driest values, mean per gridcell')
+ax1 = fig.add_subplot(131, projection=proj)
+ax2 = fig.add_subplot(132, projection=proj)
+ax3 = fig.add_subplot(133, projection=proj)
+ax1.coastlines()
+ax2.coastlines()
+ax3.coastlines()
+orig_drought.mean(dim='time').plot(ax=ax1, cmap='hot', vmin=-3, vmax=-1, add_colorbar=True, cbar_kwargs={'orientation': 'horizontal', 'label': 'mean standardised soil moisture anomaly during drought'})
+benchmark_drought.mean(dim='time').plot(ax=ax2, cmap='hot', vmin=-3, vmax=-1, add_colorbar=False)
+pred_drought.mean(dim='time').plot(ax=ax3, cmap='hot', vmin=-3, vmax=-1, add_colorbar=False)
+ax1.set_title('orig')
+ax2.set_title('benchmark')
+ax3.set_title('upscaled')
+#plt.show()
+plt.savefig('drought_upscaling.png')
+
+
+
 # define drought as driest 10% of values for each of the datasets individually
-orig_perc = orig.groupby('time.month').quantile(0.1)
-pred_perc = pred.groupby('time.month').quantile(0.1)
-
-# mask non-drought values
-orig_drought = orig.groupby('time.month').where(orig.groupby('time.month') < orig_perc) 
-pred_drought = pred.groupby('time.month').where(pred.groupby('time.month') < pred_perc)
-
-# set percentile to zero: soil moisture anomalies above drought threshold in mm
-orig_drought = (orig_drought.groupby('time.month') - orig_perc)*(-1)
-pred_drought = (pred_drought.groupby('time.month') - pred_perc)*(-1)
-import IPython; IPython.embed()
+#orig_perc = orig.groupby('time.month').quantile(0.1)
+#pred_perc = pred.groupby('time.month').quantile(0.1)
+#
+## mask non-drought values
+#orig_drought = orig.groupby('time.month').where(orig.groupby('time.month') < orig_perc) 
+#pred_drought = pred.groupby('time.month').where(pred.groupby('time.month') < pred_perc)
+#
+## set percentile to zero: soil moisture anomalies above drought threshold in mm
+#orig_drought = (orig_drought.groupby('time.month') - orig_perc)*(-1)
+#pred_drought = (pred_drought.groupby('time.month') - pred_perc)*(-1)
+#import IPython; IPython.embed()
 
 #orig_perc = orig.quantile(0.1, dim='time')
 #orig_drought = (orig - orig_perc)
@@ -73,12 +132,12 @@ for t, time in enumerate(pred_drought.time):
     fig.suptitle(f'{str(time.values)[:7]}')
     ax1 = fig.add_subplot(121, projection=proj)
     ax2 = fig.add_subplot(122, projection=proj)
-    orig_drought.sel(time=time).plot(ax=ax1, cmap='hot', add_colorbar=False, vmin=0, vmax=1000)
-    pred_drought.sel(time=time).plot(ax=ax2, cmap='hot', add_colorbar=False, vmin=0, vmax=1000)
+    orig_drought.sel(time=time).plot(ax=ax1, cmap='hot', add_colorbar=False, vmin=-3, vmax=-1.5)
+    pred_drought.sel(time=time).plot(ax=ax2, cmap='hot', add_colorbar=False, vmin=-3, vmax=-1.5)
     ax1.set_title('orig')
     ax2.set_title('upscaled')
     ax1.coastlines()
     ax2.coastlines()
-    #plt.show()
-    plt.savefig(f'drought_gif/drought_evolution_{t:03d}.png')
+    plt.show()
+    #plt.savefig(f'drought_gif/drought_evolution_{t:03d}.png')
     plt.close()
