@@ -2,15 +2,9 @@
 TEST
 """
 
-import cftime
-#import concurrent
 import numpy as np
-import pandas as pd
 import xarray as xr
-import regionmask
-import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
-
 import argparse
 
 # read gridpoint info
@@ -20,6 +14,12 @@ args = parser.parse_args()
 gridpoint = args.g
 
 # check if gridpoint is already computed
+largefilepath = '/cluster/work/climate/bverena/'
+modelname = 'CanESM5'
+experimentname = 'historical'
+ensemblename = 'r1i1p1f1'
+
+#largefilepath = '/net/so4/landclim/bverena/large_files/'
 from os.path import exists
 if exists(f'{largefilepath}mrso_benchmark_{gridpoint}_{modelname}_{experimentname}_{ensemblename}.nc'):
     print(f'gridpoint {gridpoint} is already computed, skip')
@@ -30,8 +30,6 @@ else:
 
 # load feature tables
 print('load feature tables')
-largefilepath = '/cluster/work/climate/bverena/'
-#largefilepath = '/net/so4/landclim/bverena/large_files/'
 mrso_land = xr.open_dataset(f'{largefilepath}mrso_land.nc')['mrso'].load()
 pred_land = xr.open_dataset(f'{largefilepath}pred_land.nc')['__xarray_dataarray_variable__'].load()
 
@@ -49,10 +47,6 @@ kwargs = {'n_estimators': 100, # TODO 100 this is debug
           'verbose': 0}
 
 landpoints = np.unique(mrso_land.landpoints)
-modelname = 'CanESM5'
-experimentname = 'historical'
-ensemblename = 'r1i1p1f1'
-
 X_test = pred_land.sel(landpoints=gridpoint)
 y_test = mrso_land.sel(landpoints=gridpoint)
 X_train = pred_land.where(pred_land.landpoints != gridpoint, drop=True)
