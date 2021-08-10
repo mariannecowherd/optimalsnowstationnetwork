@@ -156,8 +156,6 @@ for lat, lon in zip(stations.lat, stations.lon):
         latlon_cmip.append(f'{point.lat.item()} {point.lon.item()}')
     else:
         latlon_cmip.append('ocean')
-    #else:
-    #    stations = stations.where((stations.lat != lat) & (stations.lon != lon), drop=True) # station is in ocean, remove
 
 stations = stations.assign_coords(lat_cmip=('stations',lat_cmip))
 stations = stations.assign_coords(lon_cmip=('stations',lon_cmip))
@@ -165,6 +163,20 @@ stations_copy = stations.copy(deep=True)
 stations = stations.assign_coords(latlon_cmip=('stations',latlon_cmip))
 stations = stations.groupby('latlon_cmip').mean()
 stations = stations.drop_sel(latlon_cmip='ocean')
+
+#unobsmask = landmask.copy(deep=True)
+#lat_cmip = []
+#lon_cmip = []
+#for latlon in stations.latlon_cmip:
+#    lat, lon = latlon.item().split()
+#    lat, lon = float(lat), float(lon)
+#
+#    unobsmask.loc[lat, lon] = False
+#
+#    lat_cmip.append(lat)
+#    lon_cmip.append(lon)
+#stations = stations.assign_coords(lat_cmip=('latlon_cmip',lat_cmip))
+#stations = stations.assign_coords(lon_cmip=('latlon_cmip',lon_cmip))
 
 # divide into obs and unobs gridpoints
 obslat, obslon = np.where(obsmask)
@@ -182,20 +194,20 @@ pred_unobs = pred.isel(lat=unobslat, lon=unobslon)
 # move unobs times of obs gridpoints into unobs
 mrso_obstime = mrso_obs.copy(deep=True)
 mrso_obstime = mrso_obstime.where(~np.isnan(stations.values))
-#mrso_unobstime = mrso_obs.copy(deep=True)
-#mrso_unobstime = mrso_unobstime.where(np.isnan(stations.values)) 
+mrso_unobstime = mrso_obs.copy(deep=True)
+mrso_unobstime = mrso_unobstime.where(np.isnan(stations.values)) 
 
 pred_obstime = pred_obs.copy(deep=True)
 pred_obstime = pred_obstime.where(~np.isnan(stations.values))
-#pred_unobstime = pred_obs.copy(deep=True)
-#pred_unobstime = pred_unobstime.where(np.isnan(stations.values)) 
+pred_unobstime = pred_obs.copy(deep=True)
+pred_unobstime = pred_unobstime.where(np.isnan(stations.values)) 
 
 # flatten to skikit-learn digestable table 
 mrso_obstime = mrso_obstime.stack(datapoints=('obspoints','time'))
 pred_obstime = pred_obstime.stack(datapoints=('obspoints','time')).to_array().T
 
-#mrso_unobstime = mrso_unobstime.stack(datapoints=('obspoints','time'))
-#pred_unobstime = pred_unobstime.stack(datapoints=('obspoints','time')).to_array().T
+mrso_unobstime = mrso_unobstime.stack(datapoints=('obspoints','time'))
+pred_unobstime = pred_unobstime.stack(datapoints=('obspoints','time')).to_array().T
 
 pred_unobs = pred_unobs.stack(datapoints=('unobspoints','time')).to_array().T
 mrso_unobs = mrso_unobs.stack(datapoints=('unobspoints','time'))
@@ -204,8 +216,8 @@ mrso_unobs = mrso_unobs.stack(datapoints=('unobspoints','time'))
 mrso_obstime = mrso_obstime.where(~np.isnan(mrso_obstime), drop=True)
 pred_obstime = pred_obstime.where(~np.isnan(mrso_obstime), drop=True)
 
-#mrso_unobstime = mrso_unobstime.where(~np.isnan(mrso_unobstime), drop=True)
-#pred_unobstime = pred_unobstime.where(~np.isnan(mrso_unobstime), drop=True)
+mrso_unobstime = mrso_unobstime.where(~np.isnan(mrso_unobstime), drop=True)
+pred_unobstime = pred_unobstime.where(~np.isnan(mrso_unobstime), drop=True)
 
 # rf settings TODO later use GP
 kwargs = {'n_estimators': 100,
@@ -224,21 +236,29 @@ for year in range(2020,2031):
     y_train = mrso_obstime.where(mrso_obstime['time.year'] <= year, drop=True)
     X_train = pred_obstime.where(mrso_obstime['time.year'] <= year, drop=True)
 
-    y_test = mrso_unobs.where(mrso_unobs['time.year'] == year, drop=True)
-    X_test = pred_unobs.where(mrso_unobs['time.year'] == year, drop=True)
+    y_test_unobs = mrso_unobs.where(mrso_unobs['time.year'] == year, drop=True)
+    X_test_unobs = pred_unobs.where(mrso_unobs['time.year'] == year, drop=True)
+
+    y_test_unobstime = mrso_unobstime.where(mrso_unobstime['time.year'] == year, drop=True)
+    X_test_unobstime = pred_unobstime.where(mrso_unobstime['time.year'] == year, drop=True)
 
     # train and upscale
     rf = RandomForestRegressor(**kwargs)
     rf.fit(X_train, y_train)
 
-    y_predict = xr.full_like(y_test, np.nan)
-    y_predict[:] = rf.predict(X_test)
+    y_predict_unobs = xr.full_like(y_test_unobs, np.nan)
+    y_predict_unobs[:] = rf.predict(X_test_unobs)
 
-    print(f'upscale R2 in year {year}', xr.corr(y_predict, y_test).item()**2)
+    y_predict_unobstime = xr.full_like(y_test_unobstime, np.nan)
+    y_predict_unobstime[:] = rf.predict(X_test_unobstime)
+
+    print(f'upscale R2 in year unobs {year}', xr.corr(y_predict_unobs, y_test_unobs).item()**2)
+    print(f'upscale R2 in year unobstime {year}', xr.corr(y_predict_unobstime, y_test_unobstime).item()**2)
 
     # format back to worldmap
     timeidx = np.where(mrso_pred['time.year'] == year)[0].squeeze()
-    mrso_pred.loc[str(year),:,:].values[:,unobslat,unobslon] = y_predict.unstack('datapoints').T
+    mrso_pred.loc[str(year),:,:].values[:,unobslat,unobslon] = y_predict_unobs.unstack('datapoints').T
+    mrso_pred.loc[str(year),:,:].values[:,obslat,obslon] = y_predict_unobstime.unstack('datapoints').T
 
 import IPython; IPython.embed()
 # renormalise 
