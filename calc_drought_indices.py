@@ -16,7 +16,7 @@ experimentname = 'historical'
 ensemblename = 'r1i1p1f1'
 orig = xr.open_dataset(f'{largefilepath}mrso_orig_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
 pred = xr.open_dataset(f'{largefilepath}mrso_pred_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
-benchmark = xr.open_dataset(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
+benchmark = xr.open_dataset(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}_euler.nc')['mrso'] # debug USE EULER
 
 # normalise
 def standardised_anom(data):
@@ -53,8 +53,9 @@ r2_pred.plot(ax=ax2, cmap='Greens', vmin=0, vmax=1, add_colorbar=True, cbar_kwar
 ax1.set_title('R2 orig ~ benchmark')
 ax2.set_title('R2 orig ~ upscaled')
 ax3.set_title('R2 diff')
-#plt.show()
-plt.savefig('r2_upscaling.png')
+plt.show()
+#plt.savefig('r2_upscaling.png')
+#quit()
 
 # plot mean drought intensity
 proj = ccrs.PlateCarree()
@@ -72,8 +73,9 @@ pred_drought.mean(dim='time').plot(ax=ax3, cmap='hot', vmin=-3, vmax=-1, add_col
 ax1.set_title('orig')
 ax2.set_title('benchmark')
 ax3.set_title('upscaled')
-#plt.show()
-plt.savefig('drought_upscaling.png')
+plt.show()
+#plt.savefig('drought_upscaling.png')
+quit()
 
 
 
