@@ -178,12 +178,14 @@ if icalc:
 
 else:
     largefilepath = '/cluster/work/climate/bverena/'
+    largefilepath = '/net/so4/landclim/bverena/large_files/'
     mrso = xr.open_dataset(f'{largefilepath}mrso_test.nc')['mrso']
     mrso_seasonal_mean = mrso.groupby('time.month').mean()
     mrso_seasonal_std = mrso.groupby('time.month').std()
     mrso_land = xr.open_dataset(f'{largefilepath}mrso_land.nc')['mrso'].load()
     mrso_land = mrso_land.set_index(datapoints=('landpoints','time'))
     landpoints = np.unique(mrso_land.landpoints)
+    import IPython; IPython.embed()
     mrso_pred = xr.full_like(mrso, np.nan)
     modelname = 'CanESM5'
     experimentname = 'historical'
