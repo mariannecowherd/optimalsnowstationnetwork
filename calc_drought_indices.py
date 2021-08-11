@@ -12,10 +12,11 @@ import cartopy.crs as ccrs
 # load data
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 modelname = 'CanESM5'
-experimentname = 'historical'
+experimentname = 'ssp585'
 ensemblename = 'r1i1p1f1'
 orig = xr.open_dataset(f'{largefilepath}mrso_orig_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
-pred = xr.open_dataset(f'{largefilepath}mrso_pred_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
+experimentname = 'historical'
+pred = xr.open_dataset(f'{largefilepath}mrso_hist_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
 benchmark = xr.open_dataset(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}_euler.nc')['mrso'] # debug USE EULER
 
 # normalise
@@ -56,6 +57,7 @@ ax3.set_title('R2 diff')
 plt.show()
 #plt.savefig('r2_upscaling.png')
 #quit()
+import IPython; IPython.embed()
 
 # plot mean drought intensity
 proj = ccrs.PlateCarree()
