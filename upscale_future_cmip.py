@@ -164,26 +164,22 @@ stations = stations.assign_coords(latlon_cmip=('stations',latlon_cmip))
 stations = stations.groupby('latlon_cmip').mean()
 stations = stations.drop_sel(latlon_cmip='ocean')
 
-#unobsmask = landmask.copy(deep=True)
+# add lat and lon again to grouped station data
 lat_cmip = []
 lon_cmip = []
 for latlon in stations.latlon_cmip:
     lat, lon = latlon.item().split()
     lat, lon = float(lat), float(lon)
-#
-#    unobsmask.loc[lat, lon] = False
-#
     lat_cmip.append(lat)
     lon_cmip.append(lon)
 stations = stations.assign_coords(lat_cmip=('latlon_cmip',lat_cmip))
 stations = stations.assign_coords(lon_cmip=('latlon_cmip',lon_cmip))
 
-# make an array for unobserved future points given future network
+# mask for unobserved future points given future network
 future_unobsmask = landmask.copy(deep=True)
 future_stations = stations.loc['2030-12-31',~np.isnan(stations.sel(time='2030-12-31'))]
 for lat, lon in zip(future_stations.lat_cmip, future_stations.lon_cmip):
     future_unobsmask.loc[lat, lon] = False
-#unobslat, unobslon = np.where(future_unobsmask)
 
 # divide into obs and unobs gridpoints
 obslat, obslon = np.where(obsmask)
@@ -198,33 +194,21 @@ unobslat, unobslon = xr.DataArray(unobslat, dims='unobspoints'), xr.DataArray(un
 mrso_unobs = mrso.isel(lat=unobslat, lon=unobslon)
 pred_unobs = pred.isel(lat=unobslat, lon=unobslon)
 
-# move unobs times of obs gridpoints into unobs
+# remove unobs points from gridpoints with stations
 mrso_obstime = mrso_obs.copy(deep=True)
 mrso_obstime = mrso_obstime.where(~np.isnan(stations.values))
-#mrso_unobstime = mrso_obs.copy(deep=True)
-#mrso_unobstime = mrso_unobstime.where(np.isnan(stations.values)) 
 
 pred_obstime = pred_obs.copy(deep=True)
 pred_obstime = pred_obstime.where(~np.isnan(stations.values))
-#pred_unobstime = pred_obs.copy(deep=True)
-#pred_unobstime = pred_unobstime.where(np.isnan(stations.values)) 
 
 # flatten to skikit-learn digestable table 
 mrso_obstime = mrso_obstime.stack(datapoints=('obspoints','time'))
 pred_obstime = pred_obstime.stack(datapoints=('obspoints','time')).to_array().T
-
-#mrso_unobstime = mrso_unobstime.stack(datapoints=('obspoints','time'))
-#pred_unobstime = pred_unobstime.stack(datapoints=('obspoints','time')).to_array().T
-#
-#pred_unobs = pred_unobs.stack(datapoints=('unobspoints','time')).to_array().T
-#mrso_unobs = mrso_unobs.stack(datapoints=('unobspoints','time'))
+pred_unobs = pred_unobs.to_array()
 
 # remove nans from dataset
 mrso_obstime = mrso_obstime.where(~np.isnan(mrso_obstime), drop=True)
 pred_obstime = pred_obstime.where(~np.isnan(mrso_obstime), drop=True)
-
-#mrso_unobstime = mrso_unobstime.where(~np.isnan(mrso_unobstime), drop=True)
-#pred_unobstime = pred_unobstime.where(~np.isnan(mrso_unobstime), drop=True)
 
 # rf settings TODO later use GP
 kwargs = {'n_estimators': 100,
@@ -236,9 +220,8 @@ kwargs = {'n_estimators': 100,
           'n_jobs': 100, # set to number of trees
           'verbose': 0}
 
+# initialise array for saving results
 mrso_pred = xr.full_like(mrso.sel(time=slice('2020','2031')), np.nan)
-pred_unobs = pred_unobs.to_array()
-
 
 for year in range(2020,2031):
 
@@ -246,15 +229,6 @@ for year in range(2020,2031):
     y_train = mrso_obstime.where(mrso_obstime['time.year'] <= year, drop=True)
     X_train = pred_obstime.where(mrso_obstime['time.year'] <= year, drop=True)
 
-    #y_test_unobs = mrso_unobs.where(mrso_unobs['time.year'] == year, drop=True)
-    #X_test_unobs = pred_unobs.where(mrso_unobs['time.year'] == year, drop=True)
-
-    #y_test_unobstime = mrso_unobstime.where(mrso_unobstime['time.year'] == year, drop=True)
-    #X_test_unobstime = pred_unobstime.where(mrso_unobstime['time.year'] == year, drop=True)
-    #y_test = mrso.loc[str(year),future_stations.lat_cmip, future_stations.lon_cmip]
-    #X_test = pred.loc[:,str(year),future_stations.lat_cmip, future_stations.lon_cmip]
-    #y_test = mrso.loc[str(year),:,:].values[:,unobslat,unobslon] # numpy cant stack
-    #X_test = pred.loc[:,str(year),:,:].values[:,:,unobslat,unobslon]
     y_test = mrso_unobs.where(mrso_unobs['time.year'] == year, drop=True)
     X_test = pred_unobs.where(pred_unobs['time.year'] == year, drop=True)
 
@@ -268,13 +242,9 @@ for year in range(2020,2031):
     y_predict = xr.full_like(y_test, np.nan)
     y_predict[:] = rf.predict(X_test)
 
-    #y_predict_unobstime = xr.full_like(y_test_unobstime, np.nan)
-    #y_predict_unobstime[:] = rf.predict(X_test_unobstime)
-
     print(f'upscale R2 in year {year}', xr.corr(y_predict, y_test).item()**2)
 
     # format back to worldmap
-    #timeidx = np.where(mrso_pred['time.year'] == year)[0].squeeze()
     mrso_pred.loc[str(year),:,:].values[:,unobslat,unobslon] = y_predict.unstack('datapoints').T
 
 # renormalise 
@@ -284,22 +254,6 @@ mrso = (mrso.groupby('time.month') + mrso_seasonal_mean)
 mrso_pred = (mrso_pred.groupby('time.month') * mrso_seasonal_std)
 mrso_pred = (mrso_pred.groupby('time.month') + mrso_seasonal_mean) 
 
-# select future mrso
-#mrso = mrso.sel(time=slice('2020','2031'))
-
 # save as netcdf
-mrso_pred.to_netcdf(f'{largefilepath}mrso_fut_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
+mrso_pred.to_netcdf(f'{largefilepath}mrso_fut_{modelname}_{experimentname}_{ensemblename}.nc') 
 mrso.to_netcdf(f'{largefilepath}mrso_orig_{modelname}_{experimentname}_{ensemblename}.nc')
-
-# loop over years
-#for year in np.arange(1976,2015):
-#    next_year = str(year + 1)
-#    year = str(year)
-#    
-#    rf = RandomForestRegressor(**kwargs)
-#    rf.fit(X_train.sel(time=slice('1960',year)), 
-#           y_train.sel(time=slice('1960',year)))
-#    
-#    res = xr.full_like(X_test.sel(variable='pr',time=slice(year, next_year)).squeeze(), np.nan)
-#    res[:] = rf.predict(X_test.sel(time=slice(year, next_year))) 
-#    import IPython; IPython.embed()
