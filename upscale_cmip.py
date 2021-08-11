@@ -265,9 +265,8 @@ mrso_pred = (mrso_pred.groupby('time.month') * mrso_seasonal_std)
 mrso_pred = (mrso_pred.groupby('time.month') + mrso_seasonal_mean) 
 
 # save as netcdf
-mrso_pred.to_netcdf(f'{largefilepath}mrso_pred_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
-mrso.to_netcdf(f'{largefilepath}mrso_orig_{modelname}_{experimentname}_{ensemblename}.nc')
-
+mrso_pred.to_netcdf(f'{largefilepath}mrso_hist_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
+#mrso.to_netcdf(f'{largefilepath}mrso_orig_{modelname}_{experimentname}_{ensemblename}.nc') # save orig in future run because all years are in ther # save orig in future run because all years are in there
 # loop over years
 #for year in np.arange(1976,2015):
 #    next_year = str(year + 1)
