@@ -36,14 +36,23 @@ koeppen_simple = xr.open_dataset(f'{largefilepath}koeppen_simple.nc')['__xarray_
 #cmap = LinearSegmentedColormap.from_list('koeppen', colors, N=len(colors))
 #import IPython; IPython.embed()
 
+# divide stations into still active and past
+ipast = np.isnan(data.loc[slice('2015','2021'),:].mean(dim='time'))
+data_hist = data[:,ipast]
+data_active = data[:,~ipast]
+
 # plot worldmap with all & still active stations on koeppen climates
-#colors =
-#cmap = LinearSegmentedColormap.from_list('koeppen', colors, N=len(colors))
+colors = ['white', 'darkgreen', 'forestgreen', 'darkseagreen', 'linen', 'tan', 'gold', 'lightcoral', 'peru', 'yellowgreen', 'olive', 'olivedrab', 'lightgrey', 'whitesmoke']
+fs = 25
+cmap = LinearSegmentedColormap.from_list('koeppen', colors, N=len(colors))
 proj = ccrs.PlateCarree()
-fig = plt.figure()
+fig = plt.figure(figsize=(21,15))
 ax = fig.add_subplot(111, projection=proj)
 ax.coastlines()
-koeppen_simple.plot(ax=ax, cmap='terrain')
-plt.show()
-#ax.set_title('number of active stations per CMIP6-ng grid cell')
-#n_stations.plot(cmap='Greens', ax=ax)
+cbar_kwargs = {'orientation': 'horizontal', 'label': ''}
+koeppen_simple.plot(ax=ax, cmap=cmap, cbar_kwargs=cbar_kwargs)
+ax.scatter(data_hist.lon, data_hist.lat, transform=proj, c='red', marker='v', s=10)
+ax.scatter(data_active.lon, data_active.lat, transform=proj, c='blue', marker='v', s=10)
+ax.set_title('ISMN station network', fontsize=fs)
+#ax.set_ticklabels(['a','b'])
+plt.savefig('worldmap_stations.png')
