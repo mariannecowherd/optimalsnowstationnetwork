@@ -41,19 +41,29 @@ std = data.std(dim='time')
 data = (data - mean) / std
 
 # plot
-fig = plt.figure()
+fig = plt.figure(figsize=(18,6))
 ax = fig.add_subplot(111)
-fig.suptitle('monthly aggregated soil moisture standardised anomalies for all ISMN stations')
-ax.imshow(np.flipud(data.values), vmin=-2, vmax=2, cmap='coolwarm_r')
+fs = 25
+fig.suptitle('temporal coverage ISMN stations', fontsize=fs)
+ax.imshow(np.flipud(~np.isnan(data.values)), vmin=-2, vmax=2, cmap='coolwarm_r', aspect=0.8)
 
 # set ticklabels
 xticks = [0] + np.cumsum(np.unique(data.continent.values, return_counts=True)[1])[:-1].tolist()
 xticklabels = np.unique(data.continent.values)
+# remove ticklabels overlapping with small sample size
+xticklabels[3] = ''
+xticklabels[7] = ''
+xticklabels[9] = ''
+xticklabels[11] = ''
+xticklabels[12] = ''
+xticklabels[-2] = ''
 yticks = np.arange(0,732,12*5)
 yticklabels = np.arange(1960,2021,5)[::-1]
 ax.set_xticks(xticks)
 ax.set_yticks(yticks)
-ax.set_xticklabels(xticklabels, rotation=90)
-ax.set_yticklabels(yticklabels)
+ax.set_xticklabels(xticklabels, rotation=90, fontsize=15)
+ax.set_yticklabels(yticklabels, fontsize=15)
+plt.subplots_adjust(bottom=0.4, left=0.05, right=0.95)
 #data.plot(ax=ax, vmin=-2, vmax=2, cmap='coolwarm_r')
-plt.show()
+plt.savefig('stationtime.png')
+#plt.show()
