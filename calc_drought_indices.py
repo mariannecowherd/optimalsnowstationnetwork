@@ -19,6 +19,11 @@ experimentname = 'historical'
 pred = xr.open_dataset(f'{largefilepath}mrso_hist_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
 benchmark = xr.open_dataset(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}_euler.nc')['mrso'] # debug USE EULER
 
+# select identical time period
+orig = orig.sel(time=slice('1960','2014'))
+pred = pred.sel(time=slice('1960','2014'))
+benchmark = benchmark.sel(time=slice('1960','2014'))
+
 # normalise
 def standardised_anom(data):
     data_seasonal_mean = data.groupby('time.month').mean()
@@ -31,10 +36,13 @@ orig = standardised_anom(orig)
 pred = standardised_anom(pred)
 benchmark = standardised_anom(benchmark)
 
-# extract 10% driest values
-orig_drought = orig.where(orig < orig.quantile(0.1))
-pred_drought = pred.where(pred < pred.quantile(0.1))
-benchmark_drought = benchmark.where(benchmark < benchmark.quantile(0.1))
+# extract 10% driest values, boolean drought occurrence
+#orig_drought = orig.where(orig < orig.quantile(0.1))
+#pred_drought = pred.where(pred < pred.quantile(0.1))
+#benchmark_drought = benchmark.where(benchmark < benchmark.quantile(0.1))
+orig_drought = orig < orig.quantile(0.1)
+pred_drought = pred < pred.quantile(0.1)
+benchmark_drought = benchmark < benchmark.quantile(0.1)
 
 # plot correlation
 r2_benchmark = (xr.corr(orig, benchmark, dim='time')**2)
@@ -57,7 +65,6 @@ ax3.set_title('R2 diff')
 plt.show()
 #plt.savefig('r2_upscaling.png')
 #quit()
-import IPython; IPython.embed()
 
 # plot mean drought intensity
 proj = ccrs.PlateCarree()
@@ -69,15 +76,38 @@ ax3 = fig.add_subplot(133, projection=proj)
 ax1.coastlines()
 ax2.coastlines()
 ax3.coastlines()
-orig_drought.mean(dim='time').plot(ax=ax1, cmap='hot', vmin=-3, vmax=-1, add_colorbar=True, cbar_kwargs={'orientation': 'horizontal', 'label': 'mean standardised soil moisture anomaly during drought'})
-benchmark_drought.mean(dim='time').plot(ax=ax2, cmap='hot', vmin=-3, vmax=-1, add_colorbar=False)
-pred_drought.mean(dim='time').plot(ax=ax3, cmap='hot', vmin=-3, vmax=-1, add_colorbar=False)
+vmin=0
+vmax=170
+orig_drought.sum(dim='time').plot(ax=ax1, cmap='hot_r', add_colorbar=True, cbar_kwargs={'orientation': 'horizontal', 'label': 'mean standardised soil moisture anomaly during drought'}, vmin=vmin, vmax=vmax)
+benchmark_drought.sum(dim='time').plot(ax=ax2, cmap='hot_r',  add_colorbar=False, vmin=vmin, vmax=vmax)
+pred_drought.sum(dim='time').plot(ax=ax3, cmap='hot_r', add_colorbar=False, vmin=vmin, vmax=vmax)
 ax1.set_title('orig')
 ax2.set_title('benchmark')
 ax3.set_title('upscaled')
 plt.show()
 #plt.savefig('drought_upscaling.png')
-quit()
+
+# plot mean drought intensity rmse
+orig_sum = orig_drought.sum(dim='time')
+pred_sum = pred_drought.sum(dim='time')
+benchmark_sum = benchmark_drought.sum(dim='time')
+proj = ccrs.PlateCarree()
+fig = plt.figure(figsize=(10,3))
+fig.suptitle('global distribution of 10% driest values, mean per gridcell')
+ax1 = fig.add_subplot(131, projection=proj)
+ax2 = fig.add_subplot(132, projection=proj)
+ax3 = fig.add_subplot(133, projection=proj)
+ax1.coastlines()
+ax2.coastlines()
+ax3.coastlines()
+vmin= -50
+vmax= 50
+(orig_sum - benchmark_sum).plot(ax=ax1, cmap='coolwarm_r', vmin=vmin, vmax=vmax, add_colorbar=True, cbar_kwargs={'orientation': 'horizontal', 'label': 'mean standardised soil moisture anomaly during drought'})
+(orig_sum - pred_sum).plot(ax=ax2, cmap='coolwarm_r', vmin=vmin, vmax=vmax, add_colorbar=False)
+((orig_sum - pred_sum) - (orig_sum - benchmark_sum)).plot(ax=ax3, cmap='coolwarm', add_colorbar=True, cbar_kwargs={'orientation': 'horizontal'})
+ax1.set_title('orig - benchmark')
+ax2.set_title('orig - pred')
+plt.show()
 
 
 
@@ -130,6 +160,7 @@ quit()
 #import IPython; IPython.embed()
 #
 ## plot 
+quit()
 proj = ccrs.PlateCarree()
 for t, time in enumerate(pred_drought.time):
     fig = plt.figure(figsize=(10,3))
