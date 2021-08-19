@@ -11,6 +11,14 @@ import regionmask
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 from sklearn.ensemble import RandomForestRegressor
+import argparse
+
+# read gridpoint info
+#parser = argparse.ArgumentParser()
+#parser.add_argument('--lat', dest='lat', type=int)
+#parser.add_argument('--lon', dest='lon', type=int)
+#args = parser.parse_args()
+#gridpoint = args.g
 
 # read CMIP6 files
 def rename_vars(data):
@@ -176,13 +184,23 @@ stations = stations.assign_coords(lat_cmip=('latlon_cmip',lat_cmip))
 stations = stations.assign_coords(lon_cmip=('latlon_cmip',lon_cmip))
 
 # add another "theoretical" future stations TODO
-import IPython; IPython.embed()
+latlist = [18.75]
+lonlist = [48.75]
+for lat, lon in zip(latlist, lonlist):
+    station = xr.full_like(stations[:,0], np.nan)
+    station['lat_cmip'] = lat 
+    station['lon_cmip'] = lon
+    station['latlon_cmip'] = f'{lat} {lon}'
+    station.loc[slice('2022','2030')] = 1
+    stations = xr.concat([stations,station], dim='latlon_cmip')
+    obsmask.loc[lat, lon] = True
 
 # mask for unobserved future points given future network
 future_unobsmask = landmask.copy(deep=True)
 future_stations = stations.loc['2030-12-31',~np.isnan(stations.sel(time='2030-12-31'))]
 for lat, lon in zip(future_stations.lat_cmip, future_stations.lon_cmip):
     future_unobsmask.loc[lat, lon] = False
+stations = stations.swap_dims({'latlon_cmip': 'lat_cmip'}).reset_index('latlon_cmip', drop=True) # remove latlon_cmip coordinate
 
 # divide into obs and unobs gridpoints
 obslat, obslon = np.where(obsmask)
