@@ -117,6 +117,25 @@ seasonal_std = stations.groupby('time.month').std()
 stations = (stations.groupby('time.month') - seasonal_mean) 
 stations = stations.groupby('time.month') / seasonal_std
 
+# add some grid points for poster DEBUG TODO
+tmp = xr.full_like(stations[:,:5], np.nan)
+tmp = tmp.drop(('network','country','month','koeppen','koeppen_simple'))
+stations = stations.drop(('network','country','month','koeppen','koeppen_simple'))
+tmp = tmp.assign_coords(stations=range(2816,2821))
+tmp = tmp.assign_coords(lat=('stations',[1.25,1.25,3.75,66.25,63.75]))
+tmp = tmp.assign_coords(lat_grid=('stations',[1.25,1.25,3.75,66.25,63.75]))
+tmp = tmp.assign_coords(lon=('stations',[-58.75,-61.25,-58.75,138.8,153.8]))
+tmp = tmp.assign_coords(lon_grid=('stations',[-58.75,-61.25,-58.75,138.8,153.8]))
+tmp[1:,:] = 1
+stations = xr.concat([stations, tmp], dim='stations')
+# add new proposed station locations
+# Af: (177, 242) latlon: 1.25, -58.75 latloncmip: 1.25 -58.75
+# Am : (177, 243) latlon: 1.25, -58.25 latloncmip:  1.25 -58.75 REJECTED
+# Am: (third largest value) latlon: 1.25 60.35 latloncmip: 1.25 -61.25
+# Aw:  (174, 240) latlon: 2.75, -59.75 latloncmip: 3.75 -58.75
+# Dw: (47, 637) latlon: 66.25, 138.8 latloncmip: 66.25 138.8
+# Df: (52, 668) latlon: 63.75, 154.2 latloncmip: 63.75 153.8
+
 # regrid station data to CMIP6 grid
 landmask = ~np.isnan(mrso[0,:,:]).copy(deep=True)
 obsmask = xr.full_like(landmask, False)
@@ -265,7 +284,8 @@ mrso_pred = (mrso_pred.groupby('time.month') * mrso_seasonal_std)
 mrso_pred = (mrso_pred.groupby('time.month') + mrso_seasonal_mean) 
 
 # save as netcdf
-mrso_pred.to_netcdf(f'{largefilepath}mrso_hist_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
+import IPython; IPython.embed()
+mrso_pred.to_netcdf(f'{largefilepath}mrso_histnew_{modelname}_{experimentname}_{ensemblename}.nc') # TODO add orig values from mrso_obs
 #mrso.to_netcdf(f'{largefilepath}mrso_orig_{modelname}_{experimentname}_{ensemblename}.nc') # save orig in future run because all years are in ther # save orig in future run because all years are in there
 # loop over years
 #for year in np.arange(1976,2015):
