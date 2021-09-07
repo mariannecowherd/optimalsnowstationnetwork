@@ -17,6 +17,7 @@ ensemblename = 'r1i1p1f1'
 orig = xr.open_dataset(f'{largefilepath}mrso_orig_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
 experimentname = 'historical'
 pred = xr.open_dataset(f'{largefilepath}mrso_hist_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
+prednew = xr.open_dataset(f'{largefilepath}mrso_histnew_{modelname}_{experimentname}_{ensemblename}.nc')['mrso']
 benchmark = xr.open_dataset(f'{largefilepath}mrso_benchmark_{modelname}_{experimentname}_{ensemblename}_euler.nc')['mrso'] # debug USE EULER
 
 # select identical time period
@@ -34,6 +35,7 @@ def standardised_anom(data):
 
 orig = standardised_anom(orig)
 pred = standardised_anom(pred)
+prednew = standardised_anom(prednew)
 benchmark = standardised_anom(benchmark)
 
 # extract 10% driest values, boolean drought occurrence
@@ -141,30 +143,49 @@ ax2 = fig.add_subplot(122)
 
 orig_drought = orig.where(orig < orig.quantile(0.1))
 pred_drought = pred.where(pred < pred.quantile(0.1))
+prednew_drought = prednew.where(prednew < prednew.quantile(0.1))
 benchmark_drought = benchmark.where(benchmark < benchmark.quantile(0.1))
+import IPython; IPython.embed()
 
+#def rmse_skill(orig, benchmark, predict):
+#    rmse_benchmark = np.sqrt(((orig_drought - benchmark_drought)**2).mean(dim='time'))
+#    rmse_predict = np.sqrt(((orig_drought - pred_drought)**2).mean(dim='time'))
+#    score = 1 - (rmse_predict / rmse_benchmark)
+#    return score
+#
+#skill_pred = rmse_skill(orig_drought, benchmark_drought, pred_drought)
+#skill_prednew = rmse_skill(orig_drought, benchmark_drought, prednew_drought)
 rmse_irreducible = np.sqrt(((orig_drought - benchmark_drought)**2).mean(dim='time'))
 rmse_repr = np.sqrt(((orig_drought - pred_drought)**2).mean(dim='time'))
+rmse_repr_new = np.sqrt(((orig_drought - prednew_drought)**2).mean(dim='time'))
 rmse_diff = rmse_repr - rmse_irreducible
+rmse_diffnew = rmse_repr_new - rmse_irreducible
 rmse_diff.plot(ax=ax1, cbar_kwargs={'orientation': 'horizontal', 'label': 'RMSE difference'})
 ax1.coastlines()
 ax1.set_title('')
 
 koeppen_simple = xr.open_dataset(f'{largefilepath}koeppen_simple.nc')['__xarray_dataarray_variable__']
 import xesmf as xe
-regridder = xe.Regridder(mae_diff, koeppen_simple, 'bilinear', reuse_weights=False)
-koeppen_names = ['Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df','ET','EF']
+regridder = xe.Regridder(rmse_diff, koeppen_simple, 'bilinear', reuse_weights=False)
+koeppen_names = ['Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df']
 rmse_diff = regridder(rmse_diff)
+rmse_diffnew = regridder(rmse_diffnew)
 koeppen_rmse = []
-n_koeppen = list(range(1,14))
-koeppen_density = [3.3126, 2.4572, 3.5573, 9.6494, 23.995, 117.3616, 2.8483, 41.2927, 60.6654, 29.6423, 37.4495, 8.3342, 0.2127]
+koeppen_rmse_new = []
+n_koeppen = list(range(1,12))
+koeppen_density = [3.3126, 2.4572, 3.5573, 9.6494, 23.995, 117.3616, 2.8483, 41.2927, 60.6654, 29.6423, 37.4495]
 for k in n_koeppen:
     mae_tmp = rmse_diff.where(koeppen_simple == k, np.nan)
     koeppen_rmse.append(mae_tmp.mean().item())
+    mae_tmp = rmse_diffnew.where(koeppen_simple == k, np.nan)
+    koeppen_rmse_new.append(mae_tmp.mean().item())
 #fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(5,5))
 #fig.suptitle('koeppen climate classes')
 ax2.scatter(koeppen_density, koeppen_rmse, c='blue')
+ax2.scatter(koeppen_density, koeppen_rmse_new, c='red')
 for i,(x,y) in enumerate(zip(koeppen_density,koeppen_rmse)):
+    ax2.annotate(koeppen_names[i], xy=(x,y))
+for i,(x,y) in enumerate(zip(koeppen_density,koeppen_rmse_new)):
     ax2.annotate(koeppen_names[i], xy=(x,y))
 ax2.set_ylabel('RMSE difference')
 ax2.set_xlabel('station density [bio km^2]')
@@ -172,6 +193,15 @@ ax2.set_title('Per Koeppen climate')
 plt.show()
 import IPython; IPython.embed()
 
+# for each of the five koeppen climates with largest RMSE, point with largest RMSE
+# five koeppen with largest RMSE: Af, Am, Dw, Df, Aw
+# five points in these climates with largest RMSE among climate:
+# Af: (177, 242) latlon: 1.25, -58.75 latloncmip: 1.25 -58.75
+# Am : (177, 243) latlon: 1.25, -58.25 latloncmip:  1.25 -58.75 REJECTED
+# Am: (third largest value) latlon: 1.25 60.35 latloncmip: 1.25 -61.25
+# Aw:  (174, 240) latlon: 2.75, -59.75 latloncmip: 3.75 -58.75
+# Dw: (47, 637) latlon: 66.25, 138.8 latloncmip: 66.25 138.8
+# Df: (52, 668) latlon: 63.75, 154.2 latloncmip: 63.75 153.8
 
 
 # define drought as driest 10% of values for each of the datasets individually
