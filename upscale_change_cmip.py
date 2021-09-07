@@ -106,6 +106,7 @@ pred = xr.merge([tas, tas_1month, tas_2month, tas_3month, tas_4month, tas_5month
                  pr, pr_1month, pr_2month, pr_3month, pr_4month, pr_5month, pr_6month,
                  pr_7month, pr_8month, pr_9month, pr_10month, pr_11month, pr_12month])
 
+import IPython; IPython.embed()
 # select timerange of ismn
 mrso = mrso.sel(time=slice('1960','2030'))
 pred = pred.sel(time=slice('1960','2030'))
