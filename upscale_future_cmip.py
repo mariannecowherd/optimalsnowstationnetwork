@@ -174,6 +174,7 @@ for latlon in stations.latlon_cmip:
     lon_cmip.append(lon)
 stations = stations.assign_coords(lat_cmip=('latlon_cmip',lat_cmip))
 stations = stations.assign_coords(lon_cmip=('latlon_cmip',lon_cmip))
+import IPython; IPython.embed()
 
 # mask for unobserved future points given future network
 future_unobsmask = landmask.copy(deep=True)
