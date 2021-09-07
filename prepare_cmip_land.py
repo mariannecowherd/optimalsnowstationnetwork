@@ -43,7 +43,7 @@ def open_cmip_suite(varname, modelname, experimentname, ensemblename):
     return data
 
 modelname = 'CanESM5'
-experimentname = 'historical'
+experimentname = 'ssp585'
 ensemblename = 'r1i1p1f1'
 mrso = open_cmip_suite('mrso', modelname, experimentname, ensemblename)
 tas = open_cmip_suite('tas', modelname, experimentname, ensemblename)
@@ -93,8 +93,8 @@ if experimentname == 'historical':
     mrso = mrso.sel(time=slice('1960','2014'))
     pred = pred.sel(time=slice('1960','2014'))
 elif experimentname == 'ssp585':
-    mrso = mrso.sel(time=slice('2015','2035'))
-    pred = pred.sel(time=slice('2015','2035'))
+    mrso = mrso.sel(time=slice('2015','2050'))
+    pred = pred.sel(time=slice('2015','2050'))
 else:
     raise AttributeError(f'timerange for {experimentname} not defined')
 
