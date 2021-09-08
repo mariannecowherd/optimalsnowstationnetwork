@@ -119,5 +119,6 @@ mrso_land = mrso.isel(lat=landlat, lon=landlon)
 pred_land = pred.isel(lat=landlat, lon=landlon)
 
 # save
+mrso.to_netcdf(f'{largefilepath}mrso_{experimentname}.nc')
 mrso_land.to_netcdf(f'{largefilepath}mrso_land_{experimentname}.nc')
 pred_land.to_netcdf(f'{largefilepath}pred_land_{experimentname}.nc')
