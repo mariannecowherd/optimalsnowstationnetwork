@@ -199,6 +199,7 @@ df_gaps = df_gaps.assign_coords(country=('stations',df.country))
 df_gaps = df_gaps.where(df_gaps.koeppen != 0, drop=True)
 
 # save as netcdf
+df_gaps = df_gaps.rename('mrso')
 df_gaps.to_netcdf(f'{largefilepath}df_gaps.nc')
 
 # save cmip table as netcdf
