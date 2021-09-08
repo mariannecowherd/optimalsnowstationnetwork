@@ -110,15 +110,15 @@ pred = (pred.groupby('time.month') - seasonal_mean)
 # select land points
 #landmask = ~np.isnan(mrso.sel(time='2021-08'))
 #landmask.to_netcdf(f'{largefilepath}landmask_cmip6-ng.nc')
-landmask = xr.open_dataset(f'{largefilepath}landmask_cmip6-ng.nc')['mrso'].squeeze()
-landlat, landlon = np.where(landmask)
-landpoints = np.arange(len(landlat))
-landlat, landlon = xr.DataArray(landlat, dims='landpoints', coords=[landpoints]), xr.DataArray(landlon, dims='landpoints', coords=[landpoints])
-
-mrso_land = mrso.isel(lat=landlat, lon=landlon)
-pred_land = pred.isel(lat=landlat, lon=landlon)
+#landmask = xr.open_dataset(f'{largefilepath}landmask_cmip6-ng.nc')['mrso'].squeeze()
+#landlat, landlon = np.where(landmask)
+#landpoints = np.arange(len(landlat))
+#landlat, landlon = xr.DataArray(landlat, dims='landpoints', coords=[landpoints]), xr.DataArray(landlon, dims='landpoints', coords=[landpoints])
+#
+#mrso_land = mrso.isel(lat=landlat, lon=landlon)
+#pred_land = pred.isel(lat=landlat, lon=landlon)
 
 # save
 mrso.to_netcdf(f'{largefilepath}mrso_{experimentname}.nc')
-mrso_land.to_netcdf(f'{largefilepath}mrso_land_{experimentname}.nc')
-pred_land.to_netcdf(f'{largefilepath}pred_land_{experimentname}.nc')
+pred.to_netcdf(f'{largefilepath}pred_{experimentname}.nc')
+#mrso_land.to_netcdf(f'{largefilepath}mrso_land_{experimentname}.nc')
