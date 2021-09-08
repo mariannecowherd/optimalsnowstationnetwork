@@ -120,6 +120,8 @@ print('interpolate station locations on cmip6-ng grid')
 filepath = f'/net/atmos/data/cmip6-ng/mrso/mon/g025/'
 filename = f'{filepath}mrso_mon_CanESM5_historical_r1i1p1f1_g025.nc'
 data = xr.open_dataset(filename)
+data.coords['lon'] = (data.coords['lon'] + 180) % 360 - 180
+data = data.sortby('lon')
 lat_cmip = []
 lon_cmip = []
 latlon_cmip = []
