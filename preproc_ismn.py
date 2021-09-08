@@ -101,19 +101,33 @@ df = df[~df.index.isin(stations_without_valid_meas)]
 df_gaps = df_gaps.T[~df_gaps.T.index.isin(stations_without_valid_meas)].T
 
 # interpolate station locations on era5 grid
-print('interpolate station locations on era5 grid')
-filepath = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/'
-filename = f'{filepath}era5_deterministic_recent.lsm.025deg.time-invariant.nc'
-data = xr.open_dataset(filename)
+#print('interpolate station locations on era5 grid')
+#filepath = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/'
+#filename = f'{filepath}era5_deterministic_recent.lsm.025deg.time-invariant.nc'
+#data = xr.open_dataset(filename)
 def find_closest(list_of_values, number):
     return min(list_of_values, key=lambda x:abs(x-number))
-station_grid_lat = []
-station_grid_lon = []
-for lat, lon in zip(df.lat,df.lon):
-    station_grid_lat.append(find_closest(data.lat.values, lat))
-    station_grid_lon.append(find_closest(data.lon.values, lon))
-df['lat_grid'] = station_grid_lat
-df['lon_grid'] = station_grid_lon
+#station_grid_lat = []
+#station_grid_lon = []
+#for lat, lon in zip(df.lat,df.lon):
+#    station_grid_lat.append(find_closest(data.lat.values, lat))
+#    station_grid_lon.append(find_closest(data.lon.values, lon))
+#df['lat_grid'] = station_grid_lat
+#df['lon_grid'] = station_grid_lon
+
+# interpolate station locations on cmip6-ng grid
+print('interpolate station locations on cmip6-ng grid')
+filepath = f'/net/atmos/data/cmip6-ng/mrso/mon/g025/'
+filename = f'{filepath}mrso_mon_CanESM5_historical_r1i1p1f1_g025.nc'
+data = xr.open_dataset(filename)
+lat_cmip = []
+lon_cmip = []
+latlon_cmip = []
+for lat, lon in zip(df.lat, df.lon):
+    point = data.sel(lat=lat, lon=lon, method='nearest')
+    lat_cmip.append(point.lat.item())
+    lon_cmip.append(point.lon.item())
+    latlon_cmip.append(f'{point.lat.item()} {point.lon.item()}')
 
 # translate koeppen class string into number
 legend = pd.read_csv('koeppen_legend.txt', delimiter=';', skipinitialspace=True)
@@ -167,14 +181,39 @@ print(df.head())
 print(df_gaps.head())
 df.to_csv(f'{largefilepath}station_info_grid.csv')
 
-# save as netcdf 
+# to xarray
 df_gaps = xr.DataArray(df_gaps, dims=['time','stations'])
 df_gaps = df_gaps.assign_coords(lon=('stations',df.lon))
 df_gaps = df_gaps.assign_coords(lat=('stations',df.lat))
-df_gaps = df_gaps.assign_coords(lon_grid=('stations',df.lon_grid))
-df_gaps = df_gaps.assign_coords(lat_grid=('stations',df.lat_grid))
+#df_gaps = df_gaps.assign_coords(lon_grid=('stations',df.lon_grid))
+#df_gaps = df_gaps.assign_coords(lat_grid=('stations',df.lat_grid))
+df_gaps = df_gaps.assign_coords(lat_cmip=('stations',lat_cmip))
+df_gaps = df_gaps.assign_coords(lon_cmip=('stations',lon_cmip))
+df_gaps = df_gaps.assign_coords(latlon_cmip=('stations',latlon_cmip))
 df_gaps = df_gaps.assign_coords(koeppen=('stations',df.koeppen_class))
 df_gaps = df_gaps.assign_coords(koeppen_simple=('stations',df.simplified_koeppen_class))
 df_gaps = df_gaps.assign_coords(network=('stations',df.network))
 df_gaps = df_gaps.assign_coords(country=('stations',df.country))
+
+# remove ocean stations
+df_gaps = df_gaps.where(df_gaps.koeppen != 0, drop=True)
+
+# save as netcdf
 df_gaps.to_netcdf(f'{largefilepath}df_gaps.nc')
+
+# save cmip table as netcdf
+df_gaps = df_gaps.groupby('latlon_cmip').mean()
+
+# add lat and lon again to grouped station data
+lat_cmip = []
+lon_cmip = []
+for latlon in df_gaps.latlon_cmip:
+    lat, lon = latlon.item().split()
+    lat, lon = float(lat), float(lon)
+    lat_cmip.append(lat)
+    lon_cmip.append(lon)
+df_gaps = df_gaps.assign_coords(lat_cmip=('latlon_cmip',lat_cmip))
+df_gaps = df_gaps.assign_coords(lon_cmip=('latlon_cmip',lon_cmip))
+
+# save as netcdf
+df_gaps.to_netcdf(f'{largefilepath}df_gaps_cmip.nc')
