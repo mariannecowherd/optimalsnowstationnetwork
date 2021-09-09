@@ -43,7 +43,7 @@ def open_cmip_suite(varname, modelname, experimentname, ensemblename):
     return data
 
 modelname = 'CanESM5'
-experimentname = 'ssp585'
+experimentname = 'historical'
 ensemblename = 'r1i1p1f1'
 mrso = open_cmip_suite('mrso', modelname, experimentname, ensemblename)
 tas = open_cmip_suite('tas', modelname, experimentname, ensemblename)
