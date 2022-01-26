@@ -8,125 +8,115 @@ import xarray as xr
 import numpy as np
 import pandas as pd
 
-# TODO extract koeppen class from static_variables.csv
-# add vegetation of each station; done, funny vegetation descriptions
-# use Martins apporach (see Email) # not done because less stations (soil moisture layer depths are not standardised)
-# see for example "find . -type f" in ismnpath
-# remove stations that are placed in ocean koeppen class; done, 27 stations removed, all coastal (no obvious wrong coords)
-# add reduced koeppen class; done
-# TODO see whether there are measurement gaps
-# started with: 
-# test = pd.read_csv(onefile, skiprows=1, header=None, delimiter='  ', engine='python', parse_dates=[0])
-# test.columns = ['date','value']
-# test = test.set_index('date')
-## test.iloc[:,0] = [datetime.strptime(date, '%Y/%m/%d %H:%M').date() for date in test.iloc[:,0]]
-## test.iloc[:,1] = [float(value.split(' ')[1]) for value in test.iloc[:,1]]
-# test.value = [float(value.split(' ')[1]) for value in test.value]
-# test = test.resample('1m').mean()
-
-ismnpath = '/net/exo/landclim/data/variable/soil-moisture/ISMN/20210211/point-scale_none_0.5h/original/'
+ismnpath = ('/net/exo/landclim/data/variable/soil-moisture/ISMN/'
+             '20210211/point-scale_none_0.5h/original/')
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 station_folders = glob.glob(f'{ismnpath}**/', recursive=True)
 
 # create empty pandas dataframe for data
 print('find all station information')
-index = range(2816)
-columns = ['lat','lon','start','end', 'land_cover_class', 'network', 'country','koeppen_class','simplified_koeppen_class']
+index = range(10930)
+columns = ['lat','lon','start','end', 'land_cover_class', 'network', 
+           'country','koeppen_class','simplified_koeppen_class']
 df = pd.DataFrame(index=index, columns=columns)
-daterange = pd.date_range(start='1960-01-01', end='2021-01-01', freq='1m')
+daterange = pd.date_range(start='1960-01-01', end='2021-12-01', freq='1m')
 df_gaps = pd.DataFrame(index=daterange, columns=index)
 
-i = 0
 stations_without_valid_meas = []
-for folder in station_folders:
-    try:
-        onefile = glob.glob(f'{folder}*sm*.stm', recursive=True)[0]
-    except IndexError: # list index out of range -> no .stm files in this directory
-        continue # skip this directory
-    print(folder) # DEBUG
-    with open(onefile, 'r') as f:
-        lines = f.readlines()
-    firstline = lines[0]
-    first_entry = lines[2]
-    last_entry = lines[-1]
-    lat, lon = float(firstline.split()[3]), float(firstline.split()[4])
-    station_start = datetime.strptime(first_entry.split()[0], '%Y/%m/%d')
-    station_end = datetime.strptime(last_entry.split()[0], '%Y/%m/%d')
-    df.lat[i] = lat
-    df.lon[i] = lon
-    df.start[i] = station_start
-    df.end[i] = station_end
-    df.network[i] = folder.split('/')[-3]
+list_lat = []
+list_lon = []
+list_land_cover_class = []
+list_koeppen_class = []
+list_depth_start = []
+list_depth_end = []
+list_network = []
+station_id = []
 
-    # get info on which months are measures per station
-    test = pd.read_csv(onefile, skiprows=1, header=None, # first line is not header
-                       delim_whitespace=True, # delimiter any no of whitespaces
-                       parse_dates=[0], # first row is dates convert to format
-                       usecols=range(4)) # only first four columns since 5th column
-                                         # is network qf which may contain whitespaces
-    test.columns = ['date', 'hour' ,'value', 'qf_ismn']
-    test = test.set_index('date')
-    test = test[['value','qf_ismn']]
-    test = test[test.qf_ismn == 'G'] # only entries where quality flag is 'good'
-    test = test.resample('1m').mean()
-    if test.size == 0:
-        stations_without_valid_meas.append(i)
-    df_gaps.loc[df_gaps.index.isin(test.index),i] = test.value
+i = 0
+for folder in station_folders:  # loop over stations
 
-    # get metadata
-    try:
-        infofile = glob.glob(f'{folder}*static_variables.csv')[0]
-    except IndexError: # file does not exist
-        df.land_cover_class[i] = 'NaN'
-        df.koeppen_class[i] = 'NaN'
-        df.simplified_koeppen_class[i] = 'NaN'
-    else:
-        info = pd.read_csv(infofile, delimiter=';')
+    filenames = glob.glob(f'{folder}*sm*.stm', recursive=True)
 
+    for filename in filenames: # loop over obs within station
+        print(filename.split('/')[-1])
+
+        # get coordinates of station
+        with open(filename, 'r') as f:
+            firstline = f.readline()
+        lat, lon = float(firstline.split()[3]), float(firstline.split()[4])
+        list_lat.append(lat)
+        list_lon.append(lon)
+
+        # get depth of measurement
+        list_depth_start.append(float(filename.split('/')[-1].split('_')[4]))
+        list_depth_end.append(float(filename.split('/')[-1].split('_')[5]))
+
+        # get name of network
+        list_network.append(firstline.split()[1])
+
+        # numerate stations
+        station_id.append(i)
+
+        # open data table of observation
+        station_obs = pd.read_csv(filename, skiprows=1, header=None, # first line is not header
+                           delim_whitespace=True, # delimiter any no of whitespaces
+                           parse_dates=[0], # first row is dates convert to format
+                           usecols=range(4)) # only first four columns since 5th column
+                                             # is network qf which may contain whitespaces
+        station_obs.columns = ['date', 'hour' ,'value', 'qf_ismn']
+        station_obs = station_obs.set_index('date')
+        station_obs = station_obs[['value','qf_ismn']]
+
+        # only entries where quality flag is 'good'
+        station_obs = station_obs[station_obs.qf_ismn == 'G'] 
+
+        # calculate monthly means
+        station_obs = station_obs.resample('1m').mean()
+
+        # check if any valid measurements are avail
+        if station_obs.size == 0:
+            stations_without_valid_meas.append(i)
+
+        # write into xarray
+        df_gaps.loc[df_gaps.index.isin(station_obs.index),i] = station_obs.value
+
+        # get metadata
         try:
-            df.land_cover_class[i] = str(info[info.quantity_name == 'land cover classification'].description.iloc[-1])
-        except AttributeError: # column name does not exist
-            df.land_cover_class[i] = 'NaN'
+            infofile = glob.glob(f'{folder}*static_variables.csv')[0]
+        except IndexError: # file does not exist
+            list_land_cover_class.append('NaN')
+            list_koeppen_class.append('NaN')
+        else:
+            info = pd.read_csv(infofile, delimiter=';')
 
-        try:
-            df.koeppen_class[i] = info[info.quantity_name == 'climate classification'].value.item()
-        except (AttributeError, ValueError): # column name does not exist or more than one climate classification given
-            df.koeppen_class[i] = 'NaN'
-            df.simplified_koeppen_class[i] = 'NaN'
+            try:
+                list_land_cover_class.append(str(info[info.quantity_name == 'land cover classification'].description.iloc[-1]))
+            except AttributeError: # column name does not exist
+                list_land_cover_class.append('NaN')
+
+            try:
+                list_koeppen_class.append(info[info.quantity_name == 'climate classification'].value.item())
+            except (AttributeError, ValueError): # column name does not exist or more than one climate classification given
+                list_koeppen_class.append('NaN')
+
     # counter
     i += 1
 
 # remove stations without valid measurements (from qf)
-df = df[~df.index.isin(stations_without_valid_meas)]
-df_gaps = df_gaps.T[~df_gaps.T.index.isin(stations_without_valid_meas)].T
-
-# interpolate station locations on era5 grid
-#print('interpolate station locations on era5 grid')
-#filepath = '/net/exo/landclim/data/dataset/ERA5_deterministic/recent/0.25deg_lat-lon_time-invariant/processed/regrid/'
-#filename = f'{filepath}era5_deterministic_recent.lsm.025deg.time-invariant.nc'
-#data = xr.open_dataset(filename)
-def find_closest(list_of_values, number):
-    return min(list_of_values, key=lambda x:abs(x-number))
-#station_grid_lat = []
-#station_grid_lon = []
-#for lat, lon in zip(df.lat,df.lon):
-#    station_grid_lat.append(find_closest(data.lat.values, lat))
-#    station_grid_lon.append(find_closest(data.lon.values, lon))
-#df['lat_grid'] = station_grid_lat
-#df['lon_grid'] = station_grid_lon
+#df_gaps = df_gaps.T[~df_gaps.T.index.isin(stations_without_valid_meas)].T
 
 # interpolate station locations on cmip6-ng grid
 print('interpolate station locations on cmip6-ng grid')
 filepath = f'/net/atmos/data/cmip6-ng/mrso/mon/g025/'
 filename = f'{filepath}mrso_mon_CanESM5_historical_r1i1p1f1_g025.nc'
-data = xr.open_dataset(filename)
-data.coords['lon'] = (data.coords['lon'] + 180) % 360 - 180
-data = data.sortby('lon')
+cmip6 = xr.open_dataset(filename)
+cmip6.coords['lon'] = (cmip6.coords['lon'] + 180) % 360 - 180
+cmip6 = cmip6.sortby('lon')
 lat_cmip = []
 lon_cmip = []
 latlon_cmip = []
-for lat, lon in zip(df.lat, df.lon):
-    point = data.sel(lat=lat, lon=lon, method='nearest')
+for lat, lon in zip(list_lat, list_lon):
+    point = cmip6.sel(lat=lat, lon=lon, method='nearest')
     lat_cmip.append(point.lat.item())
     lon_cmip.append(point.lon.item())
     latlon_cmip.append(f'{point.lat.item()} {point.lon.item()}')
@@ -134,7 +124,7 @@ for lat, lon in zip(df.lat, df.lon):
 # translate koeppen class string into number
 legend = pd.read_csv('koeppen_legend.txt', delimiter=';', skipinitialspace=True)
 koeppen_no = []
-for station in df.koeppen_class:
+for station in list_koeppen_class:
     if (station != 'NaN'):
         if (station != 'W'):
             koeppen_no.append(legend[legend.Short == station].No.item())
@@ -142,7 +132,7 @@ for station in df.koeppen_class:
             koeppen_no.append(np.nan)
     else:
         koeppen_no.append(np.nan)
-df.koeppen_class = koeppen_no
+koeppen_no = np.array(koeppen_no)
 
 # fill remaining koeppen class info from koeppen map
 print('get koeppen class of station location')
@@ -150,55 +140,50 @@ filename = f'{largefilepath}Beck_KG_V1_present_0p0083.tif'
 koeppen = xr.open_rasterio(filename)
 koeppen = koeppen.rename({'x':'lon','y':'lat'}).squeeze()
 koeppen_class = []
-for lat, lon in zip(df[np.isnan(df.koeppen_class)].lat, df[np.isnan(df.koeppen_class)].lon):
-    klat = find_closest(koeppen.lat.values, lat)
-    klon = find_closest(koeppen.lon.values, lon)
+list_lat, list_lon = np.array(list_lat), np.array(list_lon)
+for lat, lon in zip(list_lat[np.isnan(koeppen_no)], list_lon[np.isnan(koeppen_no)]):
+    point = koeppen.sel(lat=lat, lon=lon, method='nearest')
+    klat, klon = point.lat.item(), point.lon.item()
     koeppen_class.append(koeppen.sel(lon=klon, lat=klat).values.item())
-df.loc[np.isnan(df.koeppen_class),'koeppen_class'] = koeppen_class
+list_koeppen_class = np.array(list_koeppen_class)
+list_koeppen_class[np.isnan(koeppen_no)] = koeppen_class
+koeppen_no[np.isnan(koeppen_no)] = koeppen_class
 
 # calculate reduced koeppen classes
 print('get simplified koeppen class of station location')
 k_reduced = [0,1,2,3,4,4,5,5,6,6,6,7,7,7,8,8,8,9,9,9,9,10,10,10,10,11,11,11,11,12,13]
 kdict = dict(zip(range(31),k_reduced))
-stations_koeppen_class = []
-for s, station in df.iterrows():
-    stations_koeppen_class.append(kdict[station.koeppen_class])
-df['simplified_koeppen_class'] = stations_koeppen_class
-
-# remove stations that are in ocean koeppen class
-#df_gaps = df_gaps.T[df.koeppen_class != 0].T # DEBUG TODO put in again
-#df = df[df.koeppen_class != 0]
+simplified_koeppen_class = []
+for station in koeppen_no:
+    simplified_koeppen_class.append(kdict[station])
 
 # add country to station
 networks = pd.read_csv('ISMN_station_countries.txt', delim_whitespace=True)
 networks = networks.set_index('Name')
-#countries = [networks.loc[net].Country for net in df['network']] # fails in IPython and nan when running
 countries = []
-for net in df ['network']:
-    countries. append(networks.loc[net].Country)
-df['country'] = countries
-
-# save
-print(df.head())
-print(df_gaps.head())
-df.to_csv(f'{largefilepath}station_info_grid.csv')
+for net in list_network:
+    countries.append(networks.loc[net].Country)
 
 # to xarray
 df_gaps = xr.DataArray(df_gaps, dims=['time','stations'])
-df_gaps = df_gaps.assign_coords(lon=('stations',df.lon))
-df_gaps = df_gaps.assign_coords(lat=('stations',df.lat))
-#df_gaps = df_gaps.assign_coords(lon_grid=('stations',df.lon_grid))
-#df_gaps = df_gaps.assign_coords(lat_grid=('stations',df.lat_grid))
+df_gaps = df_gaps.assign_coords(lon=('stations',list_lon))
+df_gaps = df_gaps.assign_coords(station_id=('stations',station_id))
+df_gaps = df_gaps.assign_coords(lat=('stations',list_lat))
 df_gaps = df_gaps.assign_coords(lat_cmip=('stations',lat_cmip))
 df_gaps = df_gaps.assign_coords(lon_cmip=('stations',lon_cmip))
 df_gaps = df_gaps.assign_coords(latlon_cmip=('stations',latlon_cmip))
-df_gaps = df_gaps.assign_coords(koeppen=('stations',df.koeppen_class))
-df_gaps = df_gaps.assign_coords(koeppen_simple=('stations',df.simplified_koeppen_class))
-df_gaps = df_gaps.assign_coords(network=('stations',df.network))
-df_gaps = df_gaps.assign_coords(country=('stations',df.country))
+df_gaps = df_gaps.assign_coords(koeppen=('stations',list_koeppen_class))
+df_gaps = df_gaps.assign_coords(koeppen_simple=('stations',simplified_koeppen_class))
+df_gaps = df_gaps.assign_coords(network=('stations',list_network))
+df_gaps = df_gaps.assign_coords(country=('stations',countries))
+df_gaps = df_gaps.assign_coords(depth_start=('stations',list_depth_start))
+df_gaps = df_gaps.assign_coords(depth_end=('stations',list_depth_end))
 
 # remove ocean stations
 df_gaps = df_gaps.where(df_gaps.koeppen != 0, drop=True)
+
+# remove stations without valid measurements (from qf)
+# TODO
 
 # save as netcdf
 df_gaps = df_gaps.rename('mrso')
