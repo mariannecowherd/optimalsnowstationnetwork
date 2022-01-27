@@ -19,7 +19,7 @@ index = range(10930)
 columns = ['lat','lon','start','end', 'land_cover_class', 'network', 
            'country','koeppen_class','simplified_koeppen_class']
 df = pd.DataFrame(index=index, columns=columns)
-daterange = pd.date_range(start='1960-01-01', end='2021-12-01', freq='1m')
+daterange = pd.date_range(start='1960-01-01', end='2021-12-01', freq='1D')
 df_gaps = pd.DataFrame(index=daterange, columns=index)
 
 stations_without_valid_meas = []
@@ -31,6 +31,7 @@ list_depth_start = []
 list_depth_end = []
 list_network = []
 station_id = []
+list_stationname = []
 
 i = 0
 for folder in station_folders:  # loop over stations
@@ -38,7 +39,7 @@ for folder in station_folders:  # loop over stations
     filenames = glob.glob(f'{folder}*sm*.stm', recursive=True)
 
     for filename in filenames: # loop over obs within station
-        print(filename.split('/')[-1])
+        #print(filename.split('/')[-1])
 
         # get coordinates of station
         with open(filename, 'r') as f:
@@ -54,6 +55,9 @@ for folder in station_folders:  # loop over stations
         # get name of network
         list_network.append(firstline.split()[1])
 
+        # get name of station
+        list_stationname.append(firstline.split()[2])
+
         # numerate stations
         station_id.append(i)
 
@@ -68,10 +72,14 @@ for folder in station_folders:  # loop over stations
         station_obs = station_obs[['value','qf_ismn']]
 
         # only entries where quality flag is 'good'
-        station_obs = station_obs[station_obs.qf_ismn == 'G'] 
+        #import IPython; IPython.embed()
+        #station_obs = station_obs[station_obs.qf_ismn == 'G'] 
+        #station_obs = station_obs[station_obs.qf_ismn.isin(['G','U','M'])]
 
         # calculate monthly means
-        station_obs = station_obs.resample('1m').mean()
+        station_obs = station_obs.resample('1D').mean()
+        print(station_obs.shape[0], filename.split('/')[-1])
+# only first 28xx entries have values... something wrong in item settings?
 
         # check if any valid measurements are avail
         if station_obs.size == 0:
@@ -174,6 +182,7 @@ df_gaps = df_gaps.assign_coords(lon_cmip=('stations',lon_cmip))
 df_gaps = df_gaps.assign_coords(latlon_cmip=('stations',latlon_cmip))
 df_gaps = df_gaps.assign_coords(koeppen=('stations',list_koeppen_class))
 df_gaps = df_gaps.assign_coords(koeppen_simple=('stations',simplified_koeppen_class))
+df_gaps = df_gaps.assign_coords(stationname=('stations',list_stationname))
 df_gaps = df_gaps.assign_coords(network=('stations',list_network))
 df_gaps = df_gaps.assign_coords(country=('stations',countries))
 df_gaps = df_gaps.assign_coords(depth_start=('stations',list_depth_start))
