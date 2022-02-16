@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 
 # load data
-largefilepath = '/net/so4/landclim/bverena/large_files/'
+largefilepath = '/net/so4/landclim/bverena/large_files/station_network/'
 modelname = 'CanESM5'
 experimentname = 'ssp585'
 ensemblename = 'r1i1p1f1'
