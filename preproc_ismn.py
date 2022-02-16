@@ -16,6 +16,7 @@ station_folders = glob.glob(f'{ismnpath}**/', recursive=True)
 # create empty pandas dataframe for data
 print('find all station information')
 index = range(10930)
+index = range(2816)
 columns = ['lat','lon','start','end', 'land_cover_class', 'network', 
            'country','koeppen_class','simplified_koeppen_class']
 df = pd.DataFrame(index=index, columns=columns)
@@ -34,9 +35,12 @@ station_id = []
 list_stationname = []
 
 i = 0
+j = 0
 for folder in station_folders:  # loop over stations
 
     filenames = glob.glob(f'{folder}*sm*.stm', recursive=True)
+    filenames = sorted(filenames)
+    filenames = filenames[:1] # DEBUG: only first soil layer
 
     for filename in filenames: # loop over obs within station
         #print(filename.split('/')[-1])
@@ -78,7 +82,7 @@ for folder in station_folders:  # loop over stations
 
         # calculate monthly means
         station_obs = station_obs.resample('1D').mean()
-        print(station_obs.shape[0], filename.split('/')[-1])
+        print(i, j, station_obs.shape[0], filename.split('/')[-1])
 # only first 28xx entries have values... something wrong in item settings?
 
         # check if any valid measurements are avail
@@ -86,7 +90,7 @@ for folder in station_folders:  # loop over stations
             stations_without_valid_meas.append(i)
 
         # write into xarray
-        df_gaps.loc[df_gaps.index.isin(station_obs.index),i] = station_obs.value
+        df_gaps.loc[df_gaps.index.isin(station_obs.index),j] = station_obs.value
 
         # get metadata
         try:
@@ -107,7 +111,9 @@ for folder in station_folders:  # loop over stations
             except (AttributeError, ValueError): # column name does not exist or more than one climate classification given
                 list_koeppen_class.append('NaN')
 
-    # counter
+        # counter for all meas
+        j += 1
+    # counter for all stations
     i += 1
 
 # remove stations without valid measurements (from qf)
