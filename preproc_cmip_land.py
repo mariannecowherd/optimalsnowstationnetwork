@@ -11,7 +11,7 @@ import regionmask
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 from sklearn.ensemble import RandomForestRegressor
-largefilepath = '/net/so4/landclim/bverena/large_files/'
+upscalepath = '/net/so4/landclim/bverena/large_files/opscaling/'
 
 # read CMIP6 files
 def rename_vars(data):
@@ -43,7 +43,7 @@ def open_cmip_suite(varname, modelname, experimentname, ensemblename):
     return data
 
 modelname = 'CanESM5'
-experimentname = 'historical'
+experimentname = 'ssp585'
 ensemblename = 'r1i1p1f1'
 mrso = open_cmip_suite('mrso', modelname, experimentname, ensemblename)
 tas = open_cmip_suite('tas', modelname, experimentname, ensemblename)
@@ -107,18 +107,8 @@ mrso = mrso.groupby('time.month') / seasonal_std
 seasonal_mean = pred.groupby('time.month').mean() 
 pred = (pred.groupby('time.month') - seasonal_mean) 
 
-# select land points
-#landmask = ~np.isnan(mrso.sel(time='2021-08'))
-#landmask.to_netcdf(f'{largefilepath}landmask_cmip6-ng.nc')
-#landmask = xr.open_dataset(f'{largefilepath}landmask_cmip6-ng.nc')['mrso'].squeeze()
-#landlat, landlon = np.where(landmask)
-#landpoints = np.arange(len(landlat))
-#landlat, landlon = xr.DataArray(landlat, dims='landpoints', coords=[landpoints]), xr.DataArray(landlon, dims='landpoints', coords=[landpoints])
-#
-#mrso_land = mrso.isel(lat=landlat, lon=landlon)
-#pred_land = pred.isel(lat=landlat, lon=landlon)
-
 # save
-mrso.to_netcdf(f'{largefilepath}mrso_{experimentname}.nc')
-pred.to_netcdf(f'{largefilepath}pred_{experimentname}.nc')
+mrso = mrso.to_dataset(name="mrso")
+mrso.to_netcdf(f'{upscalepath}mrso_{experimentname}.nc')
+pred.to_netcdf(f'{upscalepath}pred_{experimentname}.nc')
 #mrso_land.to_netcdf(f'{largefilepath}mrso_land_{experimentname}.nc')
