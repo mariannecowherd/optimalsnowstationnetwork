@@ -67,6 +67,8 @@ ax1 = fig.add_subplot(211)
 ax2 = fig.add_subplot(212)
 ax1.plot(mean_corr)
 ax2.bar(np.arange(len(mean_corr)), n_obs)
+ax1.vlines(15, -0.1, 0.5)
+ax2.vlines(15, 0, 100000)
 ax2.set_xlabel('distance in lat/lon space between two stations')
 ax1.set_ylabel('pearson correlation')
 ax2.set_ylabel('number of station pairs')
@@ -74,12 +76,13 @@ plt.show()
 
 # from visual inspection, set max distance for anomalies
 # to correlate to 15 in lat/lon space
+import IPython; IPython.embed()
 threshold = 15
 dist[dist > threshold] = np.nan
 corrmatrix[corrmatrix > threshold] = np.nan
 
 # plot settings
-cmap = plt.get_cmap('viridis').copy()
+cmap = plt.get_cmap('hot_r').copy()
 bad_color = 'lightgrey'
 cmap.set_bad(bad_color)
 fs = 12
@@ -110,9 +113,9 @@ fig, axs = plt.subplot_mosaic(mosaic, subplot_kw={'projection':proj})
 regionmask.defined_regions.natural_earth.land_110.plot(line_kws=dict(color='black', linewidth=1), ax=axs['A'], add_label=False)
 regionmask.defined_regions.natural_earth.land_110.plot(line_kws=dict(color='black', linewidth=1), ax=axs['B'], add_label=False)
 regionmask.defined_regions.natural_earth.land_110.plot(line_kws=dict(color='black', linewidth=1), ax=axs['C'], add_label=False)
-axs['A'].scatter(df.lon, df.lat, c=np.nanmax(corrmatrix, axis=0), transform=transf, cmap=cmap, vmin=0.7, vmax=1, s=5)#, marker='.')
-axs['C'].scatter(df.lon, df.lat, c=np.nanmax(corrmatrix, axis=0), transform=transf, cmap=cmap, vmin=0.7, vmax=1, s=5)#, marker='.')
-im = axs['B'].scatter(df.lon, df.lat, c=np.nanmax(corrmatrix, axis=0), transform=transf, cmap=cmap, vmin=0.7, vmax=1, s=5)#, marker='.')
+axs['A'].scatter(df.lon, df.lat, c=np.nanmax(corrmatrix, axis=0), transform=transf, cmap=cmap, vmin=0.5, vmax=1.0, s=5)#, marker='.')
+axs['C'].scatter(df.lon, df.lat, c=np.nanmax(corrmatrix, axis=0), transform=transf, cmap=cmap, vmin=0.5, vmax=1.0, s=5)#, marker='.')
+im = axs['B'].scatter(df.lon, df.lat, c=np.nanmax(corrmatrix, axis=0), transform=transf, cmap=cmap, vmin=0.5, vmax=1.0, s=5)#, marker='.')
 axs['B'].set_extent([-120, -60, 25, 52], crs=transf)
 axs['C'].set_extent([-10, 30, 35, 72], crs=transf)
 cbar_ax = fig.add_axes([0.92, 0.2, 0.02, 0.5]) # left bottom width height
