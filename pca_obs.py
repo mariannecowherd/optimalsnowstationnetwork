@@ -82,13 +82,14 @@ df = df.groupby("time.month") - clim
 # corr matrix on climatology
 #clim = df.groupby('time.dayofyear').mean()
 #corrmatrix = clim.to_pandas().corr()
-cmap = plt.get_cmap('viridis').copy()
+cmap = plt.get_cmap('hot_r').copy()
 bad_color = 'lightgrey'
 cmap.set_bad(bad_color)
+cmap.set_over('slategrey')
 corrmatrix = df.to_pandas().corr()
 np.fill_diagonal(corrmatrix.values, np.nan) # inplace
 fig, ax = plt.subplots(nrows=1, ncols=1)
-ax.imshow(corrmatrix, cmap=cmap, vmin=0, vmax=1.0)
+ax.imshow(corrmatrix, cmap=cmap, vmin=0, vmax=0.3)
 ticklabels, ticks = np.unique(df.country.values, return_counts=True)
 ticks = ticks.cumsum()
 ticks = [0] + list(ticks[:-1])
@@ -184,7 +185,6 @@ plt.show()
 
 # remove stations with missing values
 network = network[~np.isnan(clim.values).any(axis=0)]
-import IPython; IPython.embed()
 country = country[~np.isnan(clim.values).any(axis=0)]
 lat = lat[~np.isnan(clim.values).any(axis=0)]
 lon = lon[~np.isnan(clim.values).any(axis=0)]
