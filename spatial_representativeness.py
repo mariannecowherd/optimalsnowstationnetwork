@@ -76,15 +76,43 @@ for s in range(df.shape[1]):
     ##plt.savefig(f'corrmaps_{s:04}.png')
     ##plt.close()
 
-    #continue
-    if no_stations == 0:
+    # rigid spatial repr formulation
+    if no_stations < 3:
         hull.append(0)
-    elif no_stations == 1:
-        tmp = d[~np.isnan(corr)].item()
-        hull.append(tmp)
     else:
-        tmp1 = d[~np.isnan(corr)].max()
-        hull.append(tmp1)
+        no_close_corr_stations = False
+        d_corrstations = d[~np.isnan(corr)]
+        d_close = d[d <= d_corrstations.max()]
+        frac_closecorr = d_corrstations.size / d_close.size
+        while frac_closecorr <= 0.9:
+            #print(d_corrstations)
+            #print(d_close)
+            #print(frac_closecorr)
+            # remove furthest distant correlated station
+            try:
+                d_corrstations = np.delete(d_corrstations, d_corrstations.argmax())
+                d_close = d[d <= d_corrstations.max()]
+                frac_closecorr = d_corrstations.size / d_close.size
+            except ValueError: # closest station is not corr
+                no_close_corr_stations = True 
+                break # break always only breaks inner loop
+        #print(d_corrstations)
+        #print(d_close)
+        #print(frac_closecorr)
+        if no_close_corr_stations:
+            hull.append(0)
+        else:
+            hull.append(d_corrstations.max())
+
+    #continue
+    #if no_stations == 0:
+    #    hull.append(0)
+    #elif no_stations == 1:
+    #    tmp = d[~np.isnan(corr)].item()
+    #    hull.append(tmp)
+    #else:
+    #    tmp1 = d[~np.isnan(corr)].max()
+    #    hull.append(tmp1)
         # TODO: missing hull correction 90%
         #allc = allcorr[s,:]
         #tmp2 = allc[(d < tmp1) & (~np.isnan(allc))]
@@ -99,7 +127,12 @@ for s in range(df.shape[1]):
 fig = plt.figure(figsize=(10,5))
 ax = fig.add_subplot(111, projection=proj)
 ax.coastlines()
-im = ax.scatter(df.lon, df.lat, c=hull, transform=transf)
+im = ax.scatter(df.lon, df.lat, c='lightgrey', transform=transf)
+hull = np.array(hull)
+lats = df.lat[hull != 0]
+lons = df.lon[hull != 0]
+hull = hull[hull != 0]
+im = ax.scatter(lons, lats, c=hull, transform=transf, cmap='Wistia')
 cbar_ax = fig.add_axes([0.9, 0.2, 0.02, 0.5]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax)
 cbar.set_label('distance in lat/lon space')
