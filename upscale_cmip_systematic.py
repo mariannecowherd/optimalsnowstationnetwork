@@ -9,21 +9,28 @@ import pandas as pd
 import xarray as xr
 import regionmask
 import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
 from sklearn.ensemble import RandomForestRegressor
 import argparse
+from calc_geodist import calc_geodist_exact as calc_geodist
 import logging
 logging.basicConfig(format='%(asctime)s - %(message)s', 
                     datefmt='%d-%b-%y %H:%M:%S', level=logging.DEBUG)
+logging.getLogger('cftime').setLevel(logging.WARNING) 
+logging.getLogger('matplotlib').setLevel(logging.WARNING) 
+logging.getLogger('cartopy').setLevel(logging.WARNING) 
+logging.getLogger('fiona').setLevel(logging.WARNING) 
+logging.getLogger('GDAL').setLevel(logging.WARNING) 
 
+method = 'random'
 # define constants
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 upscalepath = '/net/so4/landclim/bverena/large_files/opscaling/'
 
 # read CMIP6 files
 logging.info('read cmip ...')
-mrso = xr.open_dataset(f'{upscalepath}mrso_ssp585.nc')['mrso'].load()
-pred = xr.open_dataset(f'{upscalepath}pred_ssp585.nc').load()
+modelname = 'HadGEM3-GC31-MM'
+mrso = xr.open_dataset(f'{upscalepath}mrso_{modelname}.nc')['mrso'].load().squeeze()
+pred = xr.open_dataset(f'{upscalepath}pred_{modelname}.nc').load().squeeze()
 
 # read station data
 logging.info('read station data ...')
@@ -52,14 +59,20 @@ stations = stations.where(~stations.network.isin(inactive_networks), drop=True)
 #stations = (stations.groupby('time.month') - seasonal_mean) 
 #stations = stations.groupby('time.month') / seasonal_std
 
-latlist = stations.lat_cmip.values.tolist()
+# calc min distance to closest station
+
+latlist = stations.lat_cmip.values.tolist() # only needed for first iteration
 lonlist = stations.lon_cmip.values.tolist()
 corrlist = []
 numberlist = []
-for i in range(100):
+n = 180
+#for i in range(101):
+i = 0
+while True:
     # create obsmask and unobsmask
     #logging.info('divide into obs and unobs ...')
-    landmask = xr.open_dataset(f'{largefilepath}landmask_cmip6-ng.nc')['mrso'].squeeze()
+    #landmask = xr.open_dataset(f'{largefilepath}landmask_cmip6-ng.nc')['mrso'].squeeze()
+    landmask = ~np.isnan(mrso.mean(dim='time')) # models need individual landmasks
     obsmask = xr.full_like(landmask, False)
     unobsmask = landmask.copy(deep=True)
     for lat, lon in zip(latlist, lonlist):
@@ -80,6 +93,11 @@ for i in range(100):
     mrso_unobs = mrso.isel(lat=unobslat, lon=unobslon)
     pred_unobs = pred.isel(lat=unobslat, lon=unobslon)
 
+    # initially observed values
+    if i == 0:
+        latlist = mrso_obs.lat.values.tolist()
+        lonlist = mrso_obs.lon.values.tolist()
+
     # stack landpoints and time
     #logging.info('stack')
     y_train = mrso_obs.stack(datapoints=('landpoints','time'))
@@ -87,6 +105,13 @@ for i in range(100):
 
     X_train = pred_obs.stack(datapoints=('landpoints','time')).to_array().T
     X_test = pred_unobs.stack(datapoints=('landpoints','time')).to_array().T
+
+    if y_train.size == 0:
+        logging.info('all points are observed. stop process...')
+        break
+    if mrso_unobs.shape[1] < n:
+        n = mrso_unobs.shape[1] # rest of points
+
 
     # rf TODO later use GP
     kwargs = {'n_estimators': 100,
@@ -129,7 +154,23 @@ for i in range(100):
 
     # find x gridpoints with minimum performance
     numberlist.append(len(latlist))
-    landpts = np.argsort(corr)[:3]
+    if method == 'systematic':
+        landpts = np.argsort(corr)[:n]
+    elif method == 'random':
+        landpts = np.random.choice(np.arange(corr.size), size=n)
+    elif method == 'interp':
+        # landpts = [] # actually needs to recompute for every point
+        landlat = mrso_obs.lat.values.tolist() + mrso_unobs.lat.values.tolist()
+        landlon = mrso_obs.lon.values.tolist() + mrso_unobs.lon.values.tolist()
+        nobs = mrso_obs.shape[-1]
+        dist = calc_geodist(landlon, landlat)
+        np.fill_diagonal(dist, np.nan) # inplace
+        dist = dist[nobs:, :nobs] # dist of obs to unobs
+        mindist = np.nanmin(dist, axis=1)
+        mindist[np.isnan(mindist)] = 0 # nans are weird in argsort
+        landpts = np.argsort(mindist)[-n:] 
+    else:
+        raise AttributeError('method not known')
     lats = y_test.where(y_test.landpoints.isin(landpts), drop=True).coords["lat"].values[:,0]
     lons = y_test.where(y_test.landpoints.isin(landpts), drop=True).coords["lon"].values[:,0]
     logging.info(f'{lats}, {lons}')
@@ -143,7 +184,11 @@ for i in range(100):
     corrmap[obslat, obslon] = corr_train
     mean_corr = corrmap.mean().item()**2
     corrlist.append(mean_corr)
-    logging.info(f'iteration {i} mean corr {mean_corr}')
+    logging.info(f'iteration {i} obs landpoints {len(latlist)} mean corr {mean_corr}')
+
+    # save intermediate results
+    with open('corr_{method}.pkl','wb') as f:
+        pickle.dump(corrlist, f)
 
     # plot
     proj = ccrs.Robinson()
@@ -153,16 +198,18 @@ for i in range(100):
     corrmap.plot(ax=ax, cmap='coolwarm', transform=transf, vmin=-1, vmax=1)
     ax.coastlines()
     ax.set_title(f'iter {i} mean corr {np.round(mean_corr,2)}')
+    im = ax.scatter(lonlist, latlist, c='grey', transform=transf, marker='x', s=5)
     im = ax.scatter(lons, lats, c='black', transform=transf, marker='x', s=5)
-    plt.savefig(f'corr_{i:03}.png')
+    plt.savefig(f'corr_{i:03}_{method}.png')
     plt.close()
+    i += 1
 
 # save as netcdf
 #mrso_pred.to_netcdf(f'{largefilepath}mrso_fut_{modelname}_{experimentname}_{ensemblename}.nc') 
 #mrso.to_netcdf(f'{largefilepath}mrso_orig_{modelname}_{experimentname}_{ensemblename}.nc')
 
 # plot
-import IPython; IPython.embed()
-fig = plt.figure(figsize=(10,5))
-ax = fig.add_subplot(111)
-ax.scatter(numberlist,corrlist)
+#import IPython; IPython.embed()
+#fig = plt.figure(figsize=(10,5))
+#ax = fig.add_subplot(111)
+#ax.scatter(numberlist,corrlist)
