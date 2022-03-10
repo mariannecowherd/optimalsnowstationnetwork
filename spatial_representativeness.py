@@ -4,6 +4,7 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import regionmask
+from calc_geodist import calc_geodist_exact as calc_geodist
 
 # station data
 largefilepath = '/net/so4/landclim/bverena/large_files/'
@@ -36,8 +37,9 @@ df = df.groupby("time.month") - clim
 df = df.sortby('country')
 
 # distance matrix # TODO in km, not latlon
-dist = squareform(pdist(np.array(list([df.lat.values, df.lon.values])).T))
-np.fill_diagonal(dist, np.nan) # inplace
+#dist = squareform(pdist(np.array(list([df.lat.values, df.lon.values])).T))
+#np.fill_diagonal(dist, np.nan) # inplace
+dist = calc_geodist(df.lon.values, df.lat.values)
 
 # corr matrix
 corrmatrix = df.to_pandas().corr(method='spearman',min_periods=24).values
@@ -77,8 +79,12 @@ for s in range(df.shape[1]):
     ##plt.close()
 
     # rigid spatial repr formulation
-    if no_stations < 3:
+    #if no_stations < 3: # exact formulation
+    if no_stations == 0:
         hull.append(0)
+    elif no_stations == 1:
+        d_corrstations = d[~np.isnan(corr)]
+        hull.append(d_corrstations.max())
     else:
         no_close_corr_stations = False
         d_corrstations = d[~np.isnan(corr)]
@@ -124,16 +130,44 @@ for s in range(df.shape[1]):
         #ax = fig.add_subplot(111)
 
 
-fig = plt.figure(figsize=(10,5))
-ax = fig.add_subplot(111, projection=proj)
-ax.coastlines()
-im = ax.scatter(df.lon, df.lat, c='lightgrey', transform=transf)
+#fig = plt.figure(figsize=(10,5))
+#ax = fig.add_subplot(111, projection=proj)
+#ax.coastlines()
+#im = ax.scatter(df.lon, df.lat, c='lightgrey', transform=transf)
+#hull = np.array(hull)
+#lats = df.lat[hull != 0]
+#lons = df.lon[hull != 0]
+#hull = hull[hull != 0]
+#im = ax.scatter(lons, lats, c=hull, transform=transf, cmap='Wistia')
+#cbar_ax = fig.add_axes([0.9, 0.2, 0.02, 0.5]) # left bottom width height
+#cbar = fig.colorbar(im, cax=cbar_ax)
+#cbar.set_label('distance in km')
+#plt.show()
+
+mosaic = '''
+AAB
+AAC
+'''
+fig, axs = plt.subplot_mosaic(mosaic, subplot_kw={'projection':proj})
+#fig = plt.figure(figsize=(10,5))
+#ax = fig.add_subplot(111, projection=proj)
+cmap = 'Wistia'
+regionmask.defined_regions.natural_earth.land_110.plot(line_kws=dict(color='black', linewidth=1), ax=axs['A'], add_label=False)
+regionmask.defined_regions.natural_earth.land_110.plot(line_kws=dict(color='black', linewidth=1), ax=axs['B'], add_label=False)
+regionmask.defined_regions.natural_earth.land_110.plot(line_kws=dict(color='black', linewidth=1), ax=axs['C'], add_label=False)
+axs['A'].scatter(df.lon, df.lat, c='lightgrey', transform=transf)
+axs['C'].scatter(df.lon, df.lat, c='lightgrey', transform=transf)
+im = axs['B'].scatter(df.lon, df.lat, c='lightgrey', transform=transf)
 hull = np.array(hull)
 lats = df.lat[hull != 0]
 lons = df.lon[hull != 0]
 hull = hull[hull != 0]
-im = ax.scatter(lons, lats, c=hull, transform=transf, cmap='Wistia')
-cbar_ax = fig.add_axes([0.9, 0.2, 0.02, 0.5]) # left bottom width height
+axs['A'].scatter(lons, lats, c=hull, transform=transf, cmap=cmap)
+axs['C'].scatter(lons, lats, c=hull, transform=transf, cmap=cmap)
+im = axs['B'].scatter(lons, lats, c=hull, transform=transf, cmap=cmap)
+axs['B'].set_extent([-120, -60, 25, 52], crs=transf)
+axs['C'].set_extent([-10, 30, 35, 72], crs=transf)
+cbar_ax = fig.add_axes([0.92, 0.2, 0.02, 0.5]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax)
-cbar.set_label('distance in lat/lon space')
+cbar.set_label('distance in km')
 plt.show()
