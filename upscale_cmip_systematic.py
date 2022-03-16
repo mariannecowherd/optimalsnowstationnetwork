@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import regionmask
+import pickle
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 import argparse
@@ -21,14 +22,15 @@ logging.getLogger('cartopy').setLevel(logging.WARNING)
 logging.getLogger('fiona').setLevel(logging.WARNING) 
 logging.getLogger('GDAL').setLevel(logging.WARNING) 
 
-method = 'random'
+method = 'systematic'
 # define constants
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 upscalepath = '/net/so4/landclim/bverena/large_files/opscaling/'
+logging.info(f'method {method}...')
 
 # read CMIP6 files
 logging.info('read cmip ...')
-modelname = 'HadGEM3-GC31-MM'
+modelname = 'IPSL-CM6A-LR'
 mrso = xr.open_dataset(f'{upscalepath}mrso_{modelname}.nc')['mrso'].load().squeeze()
 pred = xr.open_dataset(f'{upscalepath}pred_{modelname}.nc').load().squeeze()
 
@@ -65,9 +67,10 @@ latlist = stations.lat_cmip.values.tolist() # only needed for first iteration
 lonlist = stations.lon_cmip.values.tolist()
 corrlist = []
 numberlist = []
-n = 180
+n = 100
 #for i in range(101):
 i = 0
+logging.info('start loop ...')
 while True:
     # create obsmask and unobsmask
     #logging.info('divide into obs and unobs ...')
@@ -92,6 +95,7 @@ while True:
 
     mrso_unobs = mrso.isel(lat=unobslat, lon=unobslon)
     pred_unobs = pred.isel(lat=unobslat, lon=unobslon)
+    logging.info(f'{mrso_obs.shape[1]} gridpoints observed, {mrso_unobs.shape[1]} gridpoints unobserved')
 
     # initially observed values
     if i == 0:
@@ -106,12 +110,12 @@ while True:
     X_train = pred_obs.stack(datapoints=('landpoints','time')).to_array().T
     X_test = pred_unobs.stack(datapoints=('landpoints','time')).to_array().T
 
-    if y_train.size == 0:
+    if y_test.size == 0:
         logging.info('all points are observed. stop process...')
         break
     if mrso_unobs.shape[1] < n:
         n = mrso_unobs.shape[1] # rest of points
-
+        logging.info(f'last iteration with {n} points ...')
 
     # rf TODO later use GP
     kwargs = {'n_estimators': 100,
@@ -120,7 +124,7 @@ while True:
               'max_samples': None, 
               'bootstrap': True,
               'warm_start': False,
-              'n_jobs': 30, # set to number of trees
+              'n_jobs': 10, # set to number of trees
               'verbose': 0}
 
     #logging.info('train ...')
@@ -157,7 +161,7 @@ while True:
     if method == 'systematic':
         landpts = np.argsort(corr)[:n]
     elif method == 'random':
-        landpts = np.random.choice(np.arange(corr.size), size=n)
+        landpts = np.random.choice(np.arange(corr.size), size=n, replace=False)
     elif method == 'interp':
         # landpts = [] # actually needs to recompute for every point
         landlat = mrso_obs.lat.values.tolist() + mrso_unobs.lat.values.tolist()
@@ -173,7 +177,7 @@ while True:
         raise AttributeError('method not known')
     lats = y_test.where(y_test.landpoints.isin(landpts), drop=True).coords["lat"].values[:,0]
     lons = y_test.where(y_test.landpoints.isin(landpts), drop=True).coords["lon"].values[:,0]
-    logging.info(f'{lats}, {lons}')
+    #logging.info(f'{lats}, {lons}')
     latlist = latlist + lats.tolist()
     lonlist = lonlist + lons.tolist()
 
@@ -187,8 +191,11 @@ while True:
     logging.info(f'iteration {i} obs landpoints {len(latlist)} mean corr {mean_corr}')
 
     # save intermediate results
-    with open('corr_{method}.pkl','wb') as f:
+    with open(f'corr_{method}_{modelname}.pkl','wb') as f:
         pickle.dump(corrlist, f)
+
+    with open(f'nobs_{method}_{modelname}.pkl','wb') as f:
+        pickle.dump(numberlist, f)
 
     # plot
     proj = ccrs.Robinson()
@@ -200,7 +207,7 @@ while True:
     ax.set_title(f'iter {i} mean corr {np.round(mean_corr,2)}')
     im = ax.scatter(lonlist, latlist, c='grey', transform=transf, marker='x', s=5)
     im = ax.scatter(lons, lats, c='black', transform=transf, marker='x', s=5)
-    plt.savefig(f'corr_{i:03}_{method}.png')
+    plt.savefig(f'corr_{i:03}_{method}_{modelname}.png')
     plt.close()
     i += 1
 
