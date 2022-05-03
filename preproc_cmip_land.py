@@ -11,8 +11,11 @@ import xarray as xr
 import regionmask
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
+import warnings
 from sklearn.ensemble import RandomForestRegressor
 upscalepath = '/net/so4/landclim/bverena/large_files/opscaling/'
+warnings.filterwarnings('ignore', message='Converting a CFTimeIndex with dates from a non-standard calendar, \'360_day\', to a pandas.DatetimeIndex, which uses dates from the standard calendar.  This may lead to subtle errors in operations that depend on the length of time between dates.')
+warnings.filterwarnings('ignore', message='Converting a CFTimeIndex with dates from a non-standard calendar, \'noleap\', to a pandas.DatetimeIndex, which uses dates from the standard calendar.  This may lead to subtle errors in operations that depend on the length of time between dates.')
 
 # read CMIP6 files
 def rename_vars(data):
@@ -36,6 +39,9 @@ def rename_vars(data):
 def open_cmip_suite(varname, modelname, experimentname, ensemblename):
     cmip6_path = f'/net/atmos/data/cmip6-ng/{varname}/mon/g025/'
     filenames = glob.glob(f'{cmip6_path}{varname}_mon_{modelname}_{experimentname}_{ensemblename}_*.nc')
+    print(f'{cmip6_path}{varname}_mon_{modelname}_{experimentname}_{ensemblename}_*.nc')
+    filenames = filenames[0]
+    print(filenames)
     data = xr.open_mfdataset(filenames, 
                              combine='nested', # timestamp problem
                              concat_dim=None,  # timestamp problem
@@ -48,9 +54,17 @@ def open_cmip_suite(varname, modelname, experimentname, ensemblename):
 
     return data
 
-modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR']
-ensemblenames = ['r1i1p1f3','r1i1p1f1','r1i1p1f1','r1i1p1f1']
-for modelname, ensemblename in zip(modelnames, ensemblenames):
+modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR',
+              'ACCESS-ESM1-5','BCC-CSM2-MR','CESM2','CMCC-ESM2',
+              'CNRM-ESM2-1','CanESM5','E3SM-1-1','FGOALS-g3',
+              'GFDL-ESM4','GISS-E2-1-H','INM-CM4-8',#'MCM-UA-1-0', # MCM does not have pr
+              'UKESM1-0-LL'] #NorESM does only have esm-ssp585
+ensemblenames = ['r1i1p1f3','r1i1p1f1','r1i1p1f1','r1i1p1f1',
+                 'r10i1p1f1','r1i1p1f1','r1i1p1f1','r1i1p1f1',
+                 'r1i1p1f2','r1i1p1f1','r1i1p1f1','r1i1p1f1',
+                 'r1i1p1f1','r1i1p3f1','r1i1p1f1','r1i1p1f2']
+ensemblename = '*i1*' # same initialisation, rest doesnt matter
+for modelname, ensemblename in zip(modelnames,ensemblenames):
     #modelname = '*'
     experimentname = 'ssp585'
     #ensemblename = 'r1i1p1f1'
@@ -64,9 +78,9 @@ for modelname, ensemblename in zip(modelnames, ensemblenames):
     pr = pr.sel(time=slice('2015','2050'))
 
     # cut out Greenland and Antarctica for landmask
-    n_greenland = regionmask.defined_regions.natural_earth.countries_110.map_keys('Greenland')
-    n_antarctica = regionmask.defined_regions.natural_earth.countries_110.map_keys('Antarctica')
-    mask = regionmask.defined_regions.natural_earth.countries_110.mask(mrso)
+    n_greenland = regionmask.defined_regions.natural_earth_v5_0_0.countries_110.map_keys('Greenland')
+    n_antarctica = regionmask.defined_regions.natural_earth_v5_0_0.countries_110.map_keys('Antarctica')
+    mask = regionmask.defined_regions.natural_earth_v5_0_0.countries_110.mask(mrso)
     mrso = mrso.where((mask != n_greenland) & (mask != n_antarctica) & (~np.isnan(mask)))
     tas = tas.where((mask != n_greenland) & (mask != n_antarctica) & (~np.isnan(mask)))
     pr = pr.where((mask != n_greenland) & (mask != n_antarctica) & (~np.isnan(mask)))
@@ -124,6 +138,6 @@ for modelname, ensemblename in zip(modelnames, ensemblenames):
     # save
     # TODO save individual landmask
     mrso = mrso.to_dataset(name="mrso")
-    mrso.to_netcdf(f'{upscalepath}mrso_{modelname}_seasonality.nc')
-    pred.to_netcdf(f'{upscalepath}pred_{modelname}_seasonality.nc')
+    mrso.to_netcdf(f'{upscalepath}mrso_{modelname}.nc')
+    pred.to_netcdf(f'{upscalepath}pred_{modelname}.nc')
     #mrso_land.to_netcdf(f'{largefilepath}mrso_land_{experimentname}.nc')
