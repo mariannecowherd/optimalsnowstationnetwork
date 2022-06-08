@@ -280,22 +280,23 @@ while True:
         pickle.dump(lons_added, f)
 
     # plot
-    #proj = ccrs.Robinson()
-    #transf = ccrs.PlateCarree()
-    #fig = plt.figure(figsize=(10,5))
-    #ax = fig.add_subplot(111, projection=proj)
+    proj = ccrs.Robinson()
+    transf = ccrs.PlateCarree()
+    fig = plt.figure(figsize=(10,5))
+    ax = fig.add_subplot(111, projection=proj)
     #if metric in ['corr','seasonality']:
     #    corrmap.plot(ax=ax, cmap='coolwarm', transform=transf, vmin=-1, vmax=1)
     #elif metric == 'trend':
     #    (-corrmap).plot(ax=ax, cmap='coolwarm', transform=transf, vmin=0, vmax=0.1)
     #else:
     #    raise AttributeError('method not known')
-    #ax.coastlines()
-    #ax.set_title(f'iter {i} mean corr {np.round(mean_corr,2)}')
-    #im = ax.scatter(lonlist, latlist, c='grey', transform=transf, marker='x', s=5)
-    #im = ax.scatter(lons, lats, c='black', transform=transf, marker='x', s=5)
-    #plt.savefig(f'corr_{i:03}_{method}_{modelname}_{metric}.png')
-    #plt.close()
+    ax.coastlines()
+    ax.set_global()
+    ax.set_title(f'iter {i} mean corr {np.round(mean_corr,2)}')
+    im = ax.scatter(lonlist, latlist, c='grey', transform=transf, marker='x', s=5)
+    im = ax.scatter(lons, lats, c='black', transform=transf, marker='x', s=5)
+    plt.savefig(f'corr_{i:03}_{method}_{modelname}_{metric}.png')
+    plt.close()
     i += 1
 
 # save as netcdf
