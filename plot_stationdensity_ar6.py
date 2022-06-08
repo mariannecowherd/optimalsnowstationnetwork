@@ -57,7 +57,7 @@ for i, (lat, lon) in enumerate(zip(df.lat, df.lon)):
     region = regions.sel(lat=lat.item(), lon=lon.item(), method='nearest').item()
     station_regions[i] = region
 
-# histogram info
+#  calculate station density per region
 res = []
 for region in range(int(regions.max().item())):
     print(region)
@@ -101,8 +101,8 @@ density = density.where(~np.isnan(landmask))
 
 # plot
 cmap = plt.get_cmap('Greens').copy()
-bad_color = 'lightsteelblue'
-cmap.set_bad(bad_color)
+bad_color = 'lightgrey'
+cmap.set_under(bad_color)
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
 fig = plt.figure(figsize=(20,5))
@@ -110,7 +110,7 @@ ax = fig.add_subplot(111, projection=proj)
 cbar_kwargs = {'label': 'stations per million $km^2$'}
 #landmask.plot(ax=ax, add_colorbar=False, cmap='binary', transform=transf, vmin=0, vmax=10)
 density.plot(ax=ax, add_colorbar=True, cmap=cmap, transform=transf, 
-             vmin=0, vmax=200, cbar_kwargs=cbar_kwargs)
+             vmin=1, vmax=200, cbar_kwargs=cbar_kwargs)
 regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), ax=ax, add_label=False, proj=transf)
 ax.set_title('station density per AR6 region') 
 ax.coastlines()
