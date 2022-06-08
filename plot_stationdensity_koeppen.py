@@ -38,6 +38,7 @@ df = df.sortby('country')
 filename = f'{largefilepath}Beck_KG_V1_present_0p083.tif'
 koeppen = xr.open_rasterio(filename)
 regions = koeppen.rename({'x':'lon','y':'lat'}).squeeze()
+regions = xr.open_dataarray(f'{largefilepath}koeppen_simple.nc')
 
 # area per grid point
 #res = 0.01
@@ -62,8 +63,10 @@ for i, (lat, lon) in enumerate(zip(df.lat, df.lon)):
     station_regions[i] = region
 
 # histogram info
+# TODO this values do not align with station density per AR6 or country
+# TODO investigate
 res = []
-for region in range(31):
+for region in np.arange(1,12):
     print(region)
     no_stations = (station_regions == region).sum() # unitless
     area_region = grid['area'].where(regions == region).sum().values.item() / (1000*1000) # km**2
@@ -75,17 +78,18 @@ for region in range(31):
 n = len(res)
 legend = pd.read_csv('koeppen_legend.txt', delimiter=';')
 region_names = legend.Short.values
+region_names = ['Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df']
 
 # histogram plot
 from matplotlib.lines import Line2D
 fig = plt.figure(figsize=(10,5))
 ax = fig.add_subplot(111)
-ax.bar(np.arange(n), res)
-ax.set_xticks(np.arange(n))
-ax.set_xticklabels(region_names, rotation=90)
-ax.set_xlabel('AR6 region')
+ax.barh(np.arange(n), res[::-1])
+ax.set_yticks(np.arange(n))
+ax.set_yticklabels(region_names[::-1])#, rotation=90)
+ax.set_ylabel('AR6 region')
 #ax.set_ylabel('station density [1 station per $x^2 km^2$]')
-ax.set_ylabel('station density [stations per Mio $km^2$]')
+ax.set_xlabel('station density [stations per Mio $km^2$]')
 ax.set_title('Station density')
 #ax.hlines(182, -10, 100, colors='orange')
 #ax.hlines(84, -10, 100, colors='brown')
