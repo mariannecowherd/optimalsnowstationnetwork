@@ -54,10 +54,13 @@ fit = fit.rename_vars({key: key.replace("_polyfit_coefficients", "") for key in 
 pred_detr = pred - fit
 
 # calc standardised anomalies
-mrso_mean = mrso.groupby('time.month').mean()
-mrso_std = mrso.groupby('time.month').std()
-
-pred_mean = pred.groupby('time.month').mean()
+# tree-based methods do not need standardisation see https://datascience.stack
+#exchange.com/questions/5277/do-you-have-to-normalize-data-when-building-decis
+#ion-trees-using-r
+#mrso_mean = mrso.groupby('time.month').mean()
+#mrso_std = mrso.groupby('time.month').std()
+#
+#pred_mean = pred.groupby('time.month').mean()
 #pred_std = pred.groupby('time.month').std() # precip problem TODO
 
 if metric == 'corr':

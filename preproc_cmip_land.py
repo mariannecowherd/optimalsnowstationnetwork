@@ -8,6 +8,7 @@ import cftime
 import numpy as np
 import pandas as pd
 import xarray as xr
+import xesmf as xe
 import regionmask
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
@@ -86,8 +87,13 @@ for modelname, ensemblename in zip(modelnames,ensemblenames):
     pr = pr.where((mask != n_greenland) & (mask != n_antarctica) & (~np.isnan(mask)))
 
     # cut out deserts
-    nyears = len(np.unique(pr["time.year"]))
-    isdesert = pr.sum(dim="time") / float(nyears) < 0.00003
+    largefilepath = '/net/so4/landclim/bverena/large_files/'
+    koeppen = xr.open_dataset(f'{largefilepath}koeppen_simple.nc').to_array()
+    regridder = xe.Regridder(koeppen, mrso, 'bilinear')
+    koeppen = regridder(koeppen)
+    isdesert = koeppen == 4
+    #nyears = len(np.unique(pr["time.year"]))
+    #isdesert = pr.sum(dim="time") / float(nyears) < 0.00003
     #isdesert.to_netcdf(savepath + f"isdesert.nc")
     mrso = mrso.where(~isdesert)   
     tas = tas.where(~isdesert)   
@@ -125,15 +131,6 @@ for modelname, ensemblename in zip(modelnames,ensemblenames):
                      tas_7month, tas_8month, tas_9month, tas_10month, tas_11month, tas_12month,
                      pr, pr_1month, pr_2month, pr_3month, pr_4month, pr_5month, pr_6month,
                      pr_7month, pr_8month, pr_9month, pr_10month, pr_11month, pr_12month])
-
-    # calculate deseasonalised anomaly 
-    #seasonal_mean = mrso.groupby('time.month').mean()
-    #seasonal_std = mrso.groupby('time.month').std()
-    #mrso = (mrso.groupby('time.month') - seasonal_mean) 
-    #mrso = mrso.groupby('time.month') / seasonal_std
-
-    #seasonal_mean = pred.groupby('time.month').mean() 
-    #pred = (pred.groupby('time.month') - seasonal_mean) 
 
     # save
     # TODO save individual landmask
