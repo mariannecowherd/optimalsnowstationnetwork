@@ -35,14 +35,14 @@ df = df.assign_coords(lon=('station_id',lon.data))
 df = df.sortby('country')
 
 # koeppen
-filename = f'{largefilepath}Beck_KG_V1_present_0p083.tif'
-koeppen = xr.open_rasterio(filename)
-regions = koeppen.rename({'x':'lon','y':'lat'}).squeeze()
+#filename = f'{largefilepath}Beck_KG_V1_present_0p083.tif'
+#koeppen = xr.open_rasterio(filename)
+#regions = koeppen.rename({'x':'lon','y':'lat'}).squeeze()
 regions = xr.open_dataarray(f'{largefilepath}koeppen_simple.nc')
 
 # area per grid point
 #res = 0.01
-res = 0.1
+res = 0.5
 grid = xr.Dataset({'lat': (['lat'], regions.lat.data),
                    'lon': (['lon'], regions.lon.data)})
 shape = (len(grid.lat),len(grid.lon))
@@ -51,46 +51,39 @@ weights = np.cos(np.deg2rad(grid.lat))
 area = earth_radius**2 * np.deg2rad(res) * weights * np.deg2rad(res)
 area = np.repeat(area.values, shape[1]).reshape(shape)
 grid['area'] = (['lat','lon'], area)
+grid = grid.to_array() / (1000*1000) # to km**2
+grid = grid / (1000*1000) # to Mio km**2
 
-# ar6 regions
-landmask = regionmask.defined_regions.natural_earth.land_110.mask(grid.lon, grid.lat)
-regions = regions.where(~np.isnan(landmask))
-
-# assign each station its ar6 region
+# assign each station its  koeppen climate
 station_regions = np.full((df.shape[1]), np.nan)
 for i, (lat, lon) in enumerate(zip(df.lat, df.lon)):
     region = regions.sel(lat=lat.item(), lon=lon.item(), method='nearest').item()
     station_regions[i] = region
 
 # histogram info
-# TODO this values do not align with station density per AR6 or country
-# TODO investigate
 res = []
 for region in np.arange(1,12):
-    print(region)
     no_stations = (station_regions == region).sum() # unitless
-    area_region = grid['area'].where(regions == region).sum().values.item() / (1000*1000) # km**2
-    area_region = area_region / (1000*1000) # Mio km**2
+    area_region = grid.where(regions == region).sum().values.item()
     if no_stations != 0:
         res.append(no_stations / area_region)
     else:
         res.append(0)
+    print(region, no_stations, area_region)
 n = len(res)
-legend = pd.read_csv('koeppen_legend.txt', delimiter=';')
-region_names = legend.Short.values
 region_names = ['Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df']
 
 # histogram plot
 from matplotlib.lines import Line2D
-fig = plt.figure(figsize=(10,5))
+fig = plt.figure(figsize=(10,7))
 ax = fig.add_subplot(111)
-ax.barh(np.arange(n), res[::-1])
+ax.barh(np.arange(n), res[::-1], color='darkgreen')
 ax.set_yticks(np.arange(n))
-ax.set_yticklabels(region_names[::-1])#, rotation=90)
+ax.set_yticklabels(region_names[::-1])#, rotation=90) 
 ax.set_ylabel('AR6 region')
 #ax.set_ylabel('station density [1 station per $x^2 km^2$]')
 ax.set_xlabel('station density [stations per Mio $km^2$]')
-ax.set_title('Station density')
+ax.set_title('(a) station density per Koppen-Geiger climate')
 #ax.hlines(182, -10, 100, colors='orange')
 #ax.hlines(84, -10, 100, colors='brown')
 #ax.set_xlim([0,n])
@@ -99,13 +92,14 @@ ax.set_title('Station density')
 #gruber = [Line2D([0], [0], marker='s', color='white', linewidth=0, markersize=20, label='Gruber et al (2018)')]
 #ax.legend(handles=kloster, bbox_to_anchor=(0.9, 0.88), loc='center left', borderaxespad=0., frameon=False)
 #ax.legend(handles=gruber, bbox_to_anchor=(0.9, 0.88), loc='center left', borderaxespad=0., frameon=False)
-plt.show()
+plt.savefig('stationdensity_koeppen.png')
+quit()
 
 # create world map
 density = xr.full_like(regions, 0)
 for region, d in zip(range(31), res):
     density = density.where(regions != region, d) # unit stations per bio square km
-density = density.where(~np.isnan(landmask))
+#density = density.where(~np.isnan(landmask))
 
 # plot
 cmap = plt.get_cmap('Greens').copy()
@@ -118,7 +112,8 @@ ax = fig.add_subplot(111, projection=proj)
 cbar_kwargs = {'label': 'stations per million $km^2$'}
 #landmask.plot(ax=ax, add_colorbar=False, cmap='binary', transform=transf, vmin=0, vmax=10)
 density.plot(ax=ax, add_colorbar=True, cmap=cmap, transform=transf, 
-             vmin=0, vmax=200, cbar_kwargs=cbar_kwargs)
+             #vmin=0, vmax=200, cbar_kwargs=cbar_kwargs)
+             cbar_kwargs=cbar_kwargs)
 ax.set_title('station density per koeppen-geiger climate') 
 ax.coastlines()
 plt.show()
