@@ -90,7 +90,7 @@ ax.set_xticks(np.arange(n))
 ax.set_xticklabels(region_names, rotation=90)
 ax.set_xlabel('country')
 ax.set_ylabel('station density [1 station per $x^2 km^2$]')
-ax.set_title('Station density')
+ax.set_title('(c) station density per country')
 ax.hlines(182, -10, 100, colors='orange')
 ax.hlines(84, -10, 100, colors='brown')
 ax.set_xlim([0,n+1])
@@ -113,14 +113,17 @@ bad_color = 'lightgrey'
 cmap.set_under(bad_color)
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
-fig = plt.figure(figsize=(20,5))
+fig = plt.figure(figsize=(10,6))
 ax = fig.add_subplot(111, projection=proj)
-cbar_kwargs = {'label': 'stations per million $km^2$'}
+#cbar_kwargs = {'label': 'stations per million $km^2$'}
 #landmask.plot(ax=ax, add_colorbar=False, cmap='binary', transform=transf, vmin=0, vmax=10)
-density.plot(ax=ax, add_colorbar=True, cmap=cmap, transform=transf, 
-             vmin=1, vmax=200, cbar_kwargs=cbar_kwargs)
+im = density.plot(ax=ax, add_colorbar=False, cmap=cmap, transform=transf, 
+                  vmin=1, vmax=200)# cbar_kwargs=cbar_kwargs)
 regionmask.defined_regions.natural_earth.countries_110.plot(line_kws=dict(color='black', linewidth=1), ax=ax, add_label=False, proj=transf)
-ax.set_title('station density per country') 
+cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
+cbar = fig.colorbar(im, cax=cbar_ax)
+cbar.set_label('stations per million $km^2$')
+ax.set_title('(b) station density per country') 
 ax.coastlines()
-plt.show()
-#plt.savefig('ar6_stationdensity.png')
+#plt.show()
+plt.savefig('stationdensity_country.png')
