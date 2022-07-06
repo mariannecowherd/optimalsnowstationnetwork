@@ -16,7 +16,7 @@ modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR',
               'ACCESS-ESM1-5','BCC-CSM2-MR','CESM2','CMCC-ESM2',
               'CNRM-ESM2-1','CanESM5','E3SM-1-1','FGOALS-g3',
               'GFDL-ESM4','GISS-E2-1-H','INM-CM4-8','UKESM1-0-LL'] 
-metrics = ['_corr','_seasonality','_trend']
+metrics = ['_r2','_seasonality','_corr','_trend']
 
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 #filename = f'{largefilepath}Beck_KG_V1_present_0p5.tif'
@@ -38,16 +38,16 @@ for metric in metrics:
 
     for modelname in modelnames:
         try:
-            with open(f"corr_systematic_{modelname}{metric}.pkl", "rb") as f:
+            with open(f"corr_systematic_{modelname}{metric}_new.pkl", "rb") as f:
                 corr = pickle.load(f)
 
-            with open(f"nobs_systematic_{modelname}{metric}.pkl", "rb") as f:
+            with open(f"nobs_systematic_{modelname}{metric}_new.pkl", "rb") as f:
                 nobs = pickle.load(f)
 
-            with open(f"lats_systematic_{modelname}{metric}.pkl", "rb") as f:
+            with open(f"lats_systematic_{modelname}{metric}_new.pkl", "rb") as f:
                 latlist = pickle.load(f)
 
-            with open(f"lons_systematic_{modelname}{metric}.pkl", "rb") as f:
+            with open(f"lons_systematic_{modelname}{metric}_new.pkl", "rb") as f:
                 lonlist = pickle.load(f)
 
         except FileNotFoundError:
@@ -70,27 +70,34 @@ meaniter = meaniter.where(~np.isnan(niter).any(dim='model'))
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
 
-fig = plt.figure(figsize=(10, 3))
-ax1 = fig.add_subplot(131, projection=proj)
-ax2 = fig.add_subplot(132, projection=proj)
-ax3 = fig.add_subplot(133, projection=proj)
+fig = plt.figure(figsize=(15, 5))
+ax1 = fig.add_subplot(241, projection=proj)
+ax2 = fig.add_subplot(242, projection=proj)
+ax3 = fig.add_subplot(243, projection=proj)
+ax4 = fig.add_subplot(244, projection=proj)
+ax5 = fig.add_subplot(245)
+ax6 = fig.add_subplot(246)
+ax7 = fig.add_subplot(247)
+ax8 = fig.add_subplot(248)
 
-meaniter[0,:,:].plot(ax=ax1, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
-meaniter[1,:,:].plot(ax=ax2, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
-im = meaniter[2,:,:].plot(ax=ax3, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
+meaniter[0,:,:].plot.contourf(ax=ax1, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
+meaniter[1,:,:].plot.contourf(ax=ax2, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
+meaniter[2,:,:].plot.contourf(ax=ax3, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
+im = meaniter[3,:,:].plot.contourf(ax=ax4, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
 
 ax1.coastlines()
 ax2.coastlines()
 ax3.coastlines()
+ax4.coastlines()
 
-ax1.set_title('correlation on anomalies')
-ax2.set_title('correlation on seasonality')
-ax3.set_title('error in trend')
+ax1.set_title('(a) Absolute values')
+ax2.set_title('(b) Mean seasonal cycle')
+ax3.set_title('(c) Anomalies')
+ax4.set_title('(d) Trend')
 
-cbar_ax = fig.add_axes([0.91, 0.30, 0.01, 0.4]) # left bottom width height
+cbar_ax = fig.add_axes([0.91, 0.53, 0.02, 0.3]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax)
 cbar.set_label('mean rank percentile')
-plt.show()
 
 
 import xesmf as xe
@@ -99,10 +106,11 @@ niter = regridder(niter)
 koeppen_classes = ['Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df']
 koeppen_ints = np.arange(1,12).astype(int)
 
-fig = plt.figure(figsize=(10, 5))
-ax1 = fig.add_subplot(131)
-ax2 = fig.add_subplot(132)
-ax3 = fig.add_subplot(133)
+#fig = plt.figure(figsize=(10, 10))
+#ax1 = fig.add_subplot(221)
+#ax2 = fig.add_subplot(222)
+#ax3 = fig.add_subplot(223)
+#ax4 = fig.add_subplot(224)
 
 koeppen_res = []
 for metric in metrics:
@@ -113,22 +121,27 @@ for metric in metrics:
         #tmp.mean(dim=('lat','lon')).plot()
     koeppen_res.append(res)
 
-ax1.bar(np.arange(len(koeppen_res[0])), koeppen_res[0])
-ax2.bar(np.arange(len(koeppen_res[1])), koeppen_res[1])
-ax3.bar(np.arange(len(koeppen_res[2])), koeppen_res[2])
+ax5.bar(np.arange(len(koeppen_res[0])), koeppen_res[0], color='darkred')
+ax6.bar(np.arange(len(koeppen_res[1])), koeppen_res[1], color='darkred')
+ax7.bar(np.arange(len(koeppen_res[2])), koeppen_res[2], color='darkred')
+ax8.bar(np.arange(len(koeppen_res[3])), koeppen_res[3], color='darkred')
 
-ax1.set_ylim([0,0.7])
-ax2.set_ylim([0,0.7])
-ax3.set_ylim([0,0.7])
+ax5.set_ylim([0,0.8])
+ax6.set_ylim([0,0.8])
+ax7.set_ylim([0,0.8])
+ax8.set_ylim([0,0.8])
 
-ax1.set_xticks(np.arange(len(res)))
-ax1.set_xticklabels(koeppen_classes)
-ax2.set_xticks(np.arange(len(res)))
-ax2.set_xticklabels(koeppen_classes)
-ax3.set_xticks(np.arange(len(res)))
-ax3.set_xticklabels(koeppen_classes)
-ax1.set_title('correlation on anomalies')
-ax2.set_title('correlation on seasonality')
-ax3.set_title('error in trend')
-plt.show()
-
+ax5.set_xticks(np.arange(len(res)))
+ax5.set_xticklabels(koeppen_classes)
+ax6.set_xticks(np.arange(len(res)))
+ax6.set_xticklabels(koeppen_classes)
+ax7.set_xticks(np.arange(len(res)))
+ax7.set_xticklabels(koeppen_classes)
+ax8.set_xticks(np.arange(len(res)))
+ax8.set_xticklabels(koeppen_classes)
+#ax5.set_title('(d) Absolute values')
+#ax6.set_title('(b) Mean seasonal cycle')
+#ax7.set_title('(a) Anomalies')
+#ax8.set_title('(c) Trend')
+ax5.set_ylabel('mean rank percentile')
+plt.savefig('metrics_maps.png')
