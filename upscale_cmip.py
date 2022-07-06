@@ -11,6 +11,7 @@ import regionmask
 import pickle
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import r2_score
 import argparse
 from calc_geodist import calc_geodist_exact as calc_geodist
 import logging
@@ -57,33 +58,34 @@ pred_detr = pred - fit
 # tree-based methods do not need standardisation see https://datascience.stack
 #exchange.com/questions/5277/do-you-have-to-normalize-data-when-building-decis
 #ion-trees-using-r
-#mrso_mean = mrso.groupby('time.month').mean()
-#mrso_std = mrso.groupby('time.month').std()
+# therefore these are only used for metric computation
+mrso_mean = mrso.groupby('time.month').mean()
+mrso_std = mrso.groupby('time.month').std()
+
+pred_mean = pred.groupby('time.month').mean()
+pred_std = pred.groupby('time.month').std() 
+
+#if metric == 'corr':
+#    mrso = mrso_detr.groupby('time.month') - mrso_mean
+#    mrso = mrso_detr.groupby('time.month') / mrso_std
+#    pred = pred_detr.groupby('time.month') - pred_mean
+
+#elif metric == 'seasonality':
+#    mrso = mrso_mean / mrso_std
+#    pred = pred_mean# / pred_std
 #
-#pred_mean = pred.groupby('time.month').mean()
-#pred_std = pred.groupby('time.month').std() # precip problem TODO
-
-if metric == 'corr':
-    mrso = mrso_detr.groupby('time.month') - mrso_mean
-    mrso = mrso_detr.groupby('time.month') / mrso_std
-    pred = pred_detr.groupby('time.month') - pred_mean
-
-elif metric == 'seasonality':
-    mrso = mrso_mean / mrso_std
-    pred = pred_mean# / pred_std
-
-    mrso = mrso.rename(month='time')
-    pred = pred.rename(month='time')
-
-elif metric == 'trend':
-    mrso = mrso.groupby('time.month') - mrso_mean
-    mrso = mrso.groupby('time.month') / mrso_std
-    pred = pred.groupby('time.month') - pred_mean
-
-    mrso = mrso.resample(time='1y').mean()
-    pred = pred.resample(time='1y').mean()
-else:
-    raise AttributeError('metric not known')
+#    mrso = mrso.rename(month='time')
+#    pred = pred.rename(month='time')
+#
+#elif metric == 'trend':
+#    mrso = mrso.groupby('time.month') - mrso_mean
+#    mrso = mrso.groupby('time.month') / mrso_std
+#    pred = pred.groupby('time.month') - pred_mean
+#
+#    mrso = mrso.resample(time='1y').mean()
+#    pred = pred.resample(time='1y').mean()
+#else:
+#    raise AttributeError('metric not known')
 logging.info(f'metric {metric} data shape {mrso.shape}')
 
 # read station data
@@ -97,24 +99,8 @@ inactive_networks = ['HOBE','PBO_H20','IMA_CAN1','SWEX_POLAND','CAMPANIA',
                      'CHINA','IOWA','RUSWET-VALDAI','RUSWET-GRASS']
 stations = stations.where(~stations.network.isin(inactive_networks), drop=True)
 
-# calculate deseasonalised anomaly 
-#mrso_seasonal_mean = mrso.groupby('time.month').mean()
-#mrso_seasonal_std = mrso.groupby('time.month').std()
-#mrso = (mrso.groupby('time.month') - mrso_seasonal_mean) 
-#mrso = mrso.groupby('time.month') / mrso_seasonal_std
-#
-#seasonal_mean = pred.groupby('time.month').mean() # for reasoning see crossval file
-##seasonal_std = pred.groupby('time.month').std()
-#pred = (pred.groupby('time.month') - seasonal_mean) 
-##pred = pred.groupby('time.month') / seasonal_std
-#
-#seasonal_mean = stations.groupby('time.month').mean()
-#seasonal_std = stations.groupby('time.month').std()
-#stations = (stations.groupby('time.month') - seasonal_mean) 
-#stations = stations.groupby('time.month') / seasonal_std
 
 # calc min distance to closest station
-
 latlist = stations.lat_cmip.values.tolist() # only needed for first iteration
 lonlist = stations.lon_cmip.values.tolist()
 corrlist = []
@@ -143,12 +129,17 @@ while True:
 
     mrso_obs = mrso.isel(lat=obslat, lon=obslon)
     pred_obs = pred.isel(lat=obslat, lon=obslon)
+    mrso_mean_obs = mrso_mean.isel(lat=obslat, lon=obslon)
+    mrso_std_obs = mrso_std.isel(lat=obslat, lon=obslon)
 
     unobslat, unobslon = np.where(unobsmask)
     unobslat, unobslon = xr.DataArray(unobslat, dims='landpoints'), xr.DataArray(unobslon, dims='landpoints')
 
     mrso_unobs = mrso.isel(lat=unobslat, lon=unobslon)
     pred_unobs = pred.isel(lat=unobslat, lon=unobslon)
+    mrso_mean_unobs = mrso_mean.isel(lat=unobslat, lon=unobslon)
+    mrso_std_unobs = mrso_std.isel(lat=unobslat, lon=unobslon)
+
     logging.info(f'{mrso_obs.shape[1]} gridpoints observed, {mrso_unobs.shape[1]} gridpoints unobserved')
 
     # initially observed values
@@ -174,11 +165,11 @@ while True:
     # rf TODO later use GP
     kwargs = {'n_estimators': 100,
               'min_samples_leaf': 1, # those are all default values anyways
-              'max_features': 'auto', 
+              'max_features': 'sqrt', 
               'max_samples': None, 
               'bootstrap': True,
               'warm_start': False,
-              'n_jobs': 10, # set to number of trees
+              'n_jobs': 40, # set to number of trees
               'verbose': 0}
 
     #logging.info('train ...')
@@ -198,13 +189,24 @@ while True:
     y_test = y_test.unstack('datapoints').load()
     y_train = y_train.unstack('datapoints').load()
     y_train_predict = y_train_predict.unstack('datapoints').load()
+    y_latlon = y_test.copy(deep=True)
 
     #logging.info('corr ...')
     corrmap = xr.full_like(landmask.astype(float), np.nan)
-    if metric == 'corr':
+    if metric == 'corr': # TODO detrend?
+        y_test = y_test.groupby('time.month') - mrso_mean_unobs
+        y_predict = y_predict.groupby('time.month') - mrso_mean_unobs
+        y_train = y_train.groupby('time.month') - mrso_mean_obs
+        y_train_predict = y_train_predict.groupby('time.month') - mrso_mean_obs
+
         corr = xr.corr(y_test, y_predict, dim='time')
         corr_train = xr.corr(y_train, y_train_predict, dim='time')
     elif metric == 'seasonality':
+        y_test = y_test.groupby('time.month').mean().rename(month='time')
+        y_predict = y_predict.groupby('time.month').mean().rename(month='time')
+        y_train = y_train.groupby('time.month').mean().rename(month='time')
+        y_train_predict = y_train_predict.groupby('time.month').mean().rename(month='time')
+
         corr = xr.corr(y_test, y_predict, dim='time')
         corr_train = xr.corr(y_train, y_train_predict, dim='time')
         #test_seas = y_test.groupby("time.month").mean() 
@@ -214,6 +216,11 @@ while True:
         #corr = xr.corr(test_seas, predict_seas, dim='month')
         #corr_train = xr.corr(train_seas, train_predict_seas, dim='month')
     elif metric == 'trend': # TODO until like in Cook 2020: anomalies with reference to baseline period (1851-1880)
+        y_test = y_test.resample(time='1y').mean()
+        y_predict = y_predict.resample(time='1y').mean()
+        y_train = y_train.resample(time='1y').mean()
+        y_train_predict = y_train_predict.resample(time='1y').mean()
+
         ms_to_year = 365*24*3600*10**9
         test_trends = y_test.polyfit(dim="time", deg=1).polyfit_coefficients.sel(degree=1)*ms_to_year
         predict_trends = y_predict.polyfit(dim="time", deg=1).polyfit_coefficients.sel(degree=1)*ms_to_year
@@ -221,6 +228,14 @@ while True:
         train_predict_trends = y_train_predict.polyfit(dim="time", deg=1).polyfit_coefficients.sel(degree=1)*ms_to_year
         corr = -np.abs(test_trends - predict_trends) # corr is neg abs diff
         corr_train = -np.abs(train_trends - train_predict_trends) 
+    elif metric == 'r2':
+        # R2 should not be used for non-linear models, as it is only pearson**2
+        # for linear models and can lead to incorrect conclusions in nonlinear
+        # cases see: https://stackoverflow.com/questions/893657/how-do-i-calculate-r-squared-using-python-and-numpy
+        #corr = r2_score(y_test.T,y_predict.T, multioutput='raw_values')
+        #corr_train = r2_score(y_train.T,y_train_predict.T, multioutput='raw_values')
+        corr = xr.corr(y_test, y_predict, dim='time')
+        corr_train = xr.corr(y_train, y_train_predict, dim='time')
     else:
         raise AttributeError('metric not known')
     corrmap[unobslat, unobslon] = corr
@@ -253,8 +268,8 @@ while True:
         landpts = np.argsort(mindist)[-n:] 
     else:
         raise AttributeError('method not known')
-    lats = y_test.where(y_test.landpoints.isin(landpts), drop=True).coords["lat"].values[:,0]
-    lons = y_test.where(y_test.landpoints.isin(landpts), drop=True).coords["lon"].values[:,0]
+    lats = y_latlon.where(y_latlon.landpoints.isin(landpts), drop=True).coords["lat"].values[:,0]
+    lons = y_latlon.where(y_latlon.landpoints.isin(landpts), drop=True).coords["lon"].values[:,0]
     #logging.info(f'{lats}, {lons}')
     latlist = latlist + lats.tolist()
     lonlist = lonlist + lons.tolist()
@@ -265,21 +280,22 @@ while True:
     if metric == 'trend':
         mean_corr = -corrmap.mean().item()
     else:
-        mean_corr = corrmap.mean().item()**2
+        mean_corr = corrmap.mean().item()
     corrlist.append(mean_corr)
     logging.info(f'iteration {i} obs landpoints {len(latlist)} mean metric {mean_corr}')
 
     # save intermediate results
-    with open(f'corr_{method}_{modelname}_{metric}.pkl','wb') as f:
+    testcase = '_new'
+    with open(f'corr_{method}_{modelname}_{metric}{testcase}.pkl','wb') as f:
         pickle.dump(corrlist, f)
 
-    with open(f'nobs_{method}_{modelname}_{metric}.pkl','wb') as f:
+    with open(f'nobs_{method}_{modelname}_{metric}{testcase}.pkl','wb') as f:
         pickle.dump(numberlist, f)
 
-    with open(f'lats_{method}_{modelname}_{metric}.pkl','wb') as f:
+    with open(f'lats_{method}_{modelname}_{metric}{testcase}.pkl','wb') as f:
         pickle.dump(lats_added, f)
 
-    with open(f'lons_{method}_{modelname}_{metric}.pkl','wb') as f:
+    with open(f'lons_{method}_{modelname}_{metric}{testcase}.pkl','wb') as f:
         pickle.dump(lons_added, f)
 
     # plot
@@ -287,12 +303,12 @@ while True:
     transf = ccrs.PlateCarree()
     fig = plt.figure(figsize=(10,5))
     ax = fig.add_subplot(111, projection=proj)
-    #if metric in ['corr','seasonality']:
-    #    corrmap.plot(ax=ax, cmap='coolwarm', transform=transf, vmin=-1, vmax=1)
-    #elif metric == 'trend':
-    #    (-corrmap).plot(ax=ax, cmap='coolwarm', transform=transf, vmin=0, vmax=0.1)
-    #else:
-    #    raise AttributeError('method not known')
+    if metric in ['corr','seasonality','r2']:
+        corrmap.plot(ax=ax, cmap='coolwarm', transform=transf, vmin=-1, vmax=1)
+    elif metric == 'trend':
+        (-corrmap).plot(ax=ax, cmap='coolwarm', transform=transf, vmin=0, vmax=0.1)
+    else:
+        raise AttributeError('method not known')
     ax.coastlines()
     ax.set_global()
     ax.set_title(f'iter {i} mean corr {np.round(mean_corr,2)}')
@@ -300,6 +316,7 @@ while True:
     im = ax.scatter(lons, lats, c='black', transform=transf, marker='x', s=5)
     plt.savefig(f'corr_{i:03}_{method}_{modelname}_{metric}.png')
     plt.close()
+    #plt.show()
     i += 1
 
 # save as netcdf
