@@ -34,17 +34,24 @@ df = df.assign_coords(lat=('station_id',lat.data))
 df = df.assign_coords(lon=('station_id',lon.data))
 df = df.sortby('country')
 
+# koeppen
+regions = xr.open_dataarray(f'{largefilepath}koeppen_simple.nc')
+
 # area per grid point
 #res = 0.01
-res = 0.1
-grid = xr.Dataset({'lat': (['lat'], np.arange(-90,90,res)),
-                   'lon': (['lon'], np.arange(-180,180,res))})
+res = 0.5 # has to be resolution of "regions" for correct grid area calc
+#grid = xr.Dataset({'lat': (['lat'], np.arange(-90,90,res)),
+#                   'lon': (['lon'], np.arange(-180,180,res))})
+grid = xr.Dataset({'lat': (['lat'], regions.lat.data),
+                   'lon': (['lon'], regions.lon.data)})
 shape = (len(grid.lat),len(grid.lon))
 earth_radius = 6371*1000 # in m
 weights = np.cos(np.deg2rad(grid.lat))
 area = earth_radius**2 * np.deg2rad(res) * weights * np.deg2rad(res)
 area = np.repeat(area.values, shape[1]).reshape(shape)
 grid['area'] = (['lat','lon'], area)
+grid = grid.to_array() / (1000*1000) # to km**2
+grid = grid / (1000*1000) # to Mio km**2
 
 # ar6 regions
 landmask = regionmask.defined_regions.natural_earth.land_110.mask(grid.lon, grid.lat)
@@ -57,18 +64,23 @@ for i, (lat, lon) in enumerate(zip(df.lat, df.lon)):
     region = regions.sel(lat=lat.item(), lon=lon.item(), method='nearest').item()
     station_regions[i] = region
 
+import IPython; IPython.embed()
 #  calculate station density per region
 res = []
+test1 = 0
+test2 = 0
 for region in range(int(regions.max().item())):
-    print(region)
     no_stations = (station_regions == region).sum() # unitless
-    area_region = grid['area'].where(regions == region).sum().values.item() / (1000*1000) # km**2
-    area_region = area_region / (1000*1000) # Mio km**2
+    area_region = grid.where(regions == region).sum().values.item()# / (1000*1000) # km**2
+    #area_region = area_region / (1000*1000) # Mio km**2
+    test1 = test1 + no_stations
+    test2 = test2 + area_region
     if no_stations != 0:
         res.append(no_stations / area_region)
     else:
         res.append(0)
-
+    print(region, no_stations, area_region)
+import IPython; IPython.embed()
 # histogram plot
 from matplotlib.lines import Line2D
 region_names = regionmask.defined_regions.ar6.land.names[:-1]
@@ -79,7 +91,7 @@ ax.set_xticks(np.arange(45))
 ax.set_xticklabels(region_names, rotation=90)
 ax.set_xlabel('AR6 region')
 ax.set_ylabel('station density [stations per Mio $km^2$]')
-ax.set_title('Station density')
+ax.set_title('(c) station density per AR6 region')
 ax.hlines(182, -10, 100, colors='orange')
 ax.hlines(84, -10, 100, colors='brown')
 ax.set_xlim([0,45])
@@ -105,14 +117,16 @@ bad_color = 'lightgrey'
 cmap.set_under(bad_color)
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
-fig = plt.figure(figsize=(20,5))
+fig = plt.figure(figsize=(10,6))
 ax = fig.add_subplot(111, projection=proj)
-cbar_kwargs = {'label': 'stations per million $km^2$'}
+#cbar_kwargs = {'label': 'stations per million $km^2$'}
 #landmask.plot(ax=ax, add_colorbar=False, cmap='binary', transform=transf, vmin=0, vmax=10)
-density.plot(ax=ax, add_colorbar=True, cmap=cmap, transform=transf, 
-             vmin=1, vmax=200, cbar_kwargs=cbar_kwargs)
+im = density.plot(ax=ax, add_colorbar=False, cmap=cmap, transform=transf, 
+             vmin=1, vmax=200)#, cbar_kwargs=cbar_kwargs)
 regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), ax=ax, add_label=False, proj=transf)
 ax.set_title('station density per AR6 region') 
+#cbar_ax = fig.add_axes([0.80, 0.15, 0.02, 0.3]) # left bottom width height
+#cbar = fig.colorbar(im, cax=cbar_ax)
+#cbar.set_label('stations per million $km^2$')
 ax.coastlines()
-plt.show()
-#plt.savefig('ar6_stationdensity.png')
+plt.savefig('stationdensity_ar6.png')
