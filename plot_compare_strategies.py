@@ -22,6 +22,7 @@ modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR', # three
 metrics = ['r2','seasonality','corr','trend']
 strategies = ['random','interp','systematic']
 col = [col_random, col_swaths, col_real]
+testcase = 'highres'
 
 fig = plt.figure(figsize=(10, 10))
 ax1 = fig.add_subplot(221)
@@ -43,10 +44,10 @@ for metric, ax in zip(metrics, (ax1,ax2,ax3,ax4)):
         for s, strategy in enumerate(strategies):
 
             try:
-                with open(f"corr_{strategy}_{modelname}_{metric}_new.pkl", "rb") as f:
+                with open(f"corr_{strategy}_{modelname}_{metric}_{testcase}.pkl", "rb") as f:
                     corr = pickle.load(f)
 
-                with open(f"nobs_{strategy}_{modelname}_{metric}_new.pkl", "rb") as f:
+                with open(f"nobs_{strategy}_{modelname}_{metric}_{testcase}.pkl", "rb") as f:
                     nobs = pickle.load(f)
             except FileNotFoundError:
                 continue
@@ -111,5 +112,5 @@ legend_colors = [Line2D([0], [0], marker='None', color=col_random, linewidth=2, 
                  Line2D([0], [0], marker='None', color=col_real, label='systematic')]
 ax2.legend(handles=legend_colors, loc='lower right', borderaxespad=0.)
 
-#plt.show()
-plt.savefig('compare_metrics.png')
+plt.show()
+#plt.savefig('compare_metrics.png')
