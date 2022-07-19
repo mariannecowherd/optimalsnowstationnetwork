@@ -122,6 +122,8 @@ while True:
         unobsmask.loc[lat,lon] = False
         if landmask.loc[lat,lon].item(): # obs gridpoint if station contained and on CMIP land 
             obsmask.loc[lat,lon] = True
+    import IPython; IPython.embed()
+    #obsmask.to_netcdf(f'{largefilepath}opscaling/obsmask.nc')
 
     # divide into obs and unobs gridpoints
     obslat, obslon = np.where(obsmask)
@@ -187,6 +189,8 @@ while True:
     #logging.info('unstack ...')
     y_predict = y_predict.unstack('datapoints').load()
     y_test = y_test.unstack('datapoints').load()
+    y_test.to_netcdf('y_test.nc') # DEBUG
+    y_predict.to_netcdf('y_predict.nc') #DEBUG
     y_train = y_train.unstack('datapoints').load()
     y_train_predict = y_train_predict.unstack('datapoints').load()
     y_latlon = y_test.copy(deep=True)
@@ -285,7 +289,7 @@ while True:
     logging.info(f'iteration {i} obs landpoints {len(latlist)} mean metric {mean_corr}')
 
     # save intermediate results
-    testcase = '_new'
+    testcase = '_savemap'
     with open(f'corr_{method}_{modelname}_{metric}{testcase}.pkl','wb') as f:
         pickle.dump(corrlist, f)
 
@@ -299,25 +303,28 @@ while True:
         pickle.dump(lons_added, f)
 
     # plot
-    proj = ccrs.Robinson()
-    transf = ccrs.PlateCarree()
-    fig = plt.figure(figsize=(10,5))
-    ax = fig.add_subplot(111, projection=proj)
-    if metric in ['corr','seasonality','r2']:
-        corrmap.plot(ax=ax, cmap='coolwarm', transform=transf, vmin=-1, vmax=1)
-    elif metric == 'trend':
-        (-corrmap).plot(ax=ax, cmap='coolwarm', transform=transf, vmin=0, vmax=0.1)
-    else:
-        raise AttributeError('method not known')
-    ax.coastlines()
-    ax.set_global()
-    ax.set_title(f'iter {i} mean corr {np.round(mean_corr,2)}')
-    im = ax.scatter(lonlist, latlist, c='grey', transform=transf, marker='x', s=5)
-    im = ax.scatter(lons, lats, c='black', transform=transf, marker='x', s=5)
-    plt.savefig(f'corr_{i:03}_{method}_{modelname}_{metric}.png')
-    plt.close()
-    #plt.show()
+    #proj = ccrs.Robinson()
+    #transf = ccrs.PlateCarree()
+    #fig = plt.figure(figsize=(10,5))
+    #ax = fig.add_subplot(111, projection=proj)
+    #if metric in ['corr','seasonality','r2']:
+    #    corrmap.plot(ax=ax, cmap='coolwarm', transform=transf, vmin=-1, vmax=1)
+    #elif metric == 'trend':
+    #    (-corrmap).plot(ax=ax, cmap='coolwarm', transform=transf, vmin=0, vmax=0.1)
+    #else:
+    #    raise AttributeError('method not known')
+    #ax.coastlines()
+    #ax.set_global()
+    #ax.set_title(f'iter {i} mean corr {np.round(mean_corr,2)}')
+    #im = ax.scatter(lonlist, latlist, c='grey', transform=transf, marker='x', s=5)
+    #im = ax.scatter(lons, lats, c='black', transform=transf, marker='x', s=5)
+    #plt.savefig(f'corr_{i:03}_{method}_{modelname}_{metric}.png')
+    #plt.close()
+    ##plt.show()
     i += 1
+    frac_obs = mrso_obs.shape[1] / (mrso_obs.shape[1] + mrso_unobs.shape[1])
+    corrmap = corrmap.assign_coords(frac_observed=frac_obs)
+    corrmap.to_netcdf(f'corrmap_{i:03}_{method}_{modelname}_{metric}{testcase}.nc')
 
 # save as netcdf
 #mrso_pred.to_netcdf(f'{largefilepath}mrso_fut_{modelname}_{experimentname}_{ensemblename}.nc') 
