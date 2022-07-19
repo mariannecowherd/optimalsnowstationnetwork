@@ -3,6 +3,7 @@ import xarray as xr
 import cartopy.crs as ccrs
 import numpy as np
 import matplotlib.pyplot as plt
+import regionmask
 
 colors = np.array([[81,73,171],[124,156,172],[236,197,140],[85,31,50],[189,65,70],[243,220,124]])
 colors = colors/255.
@@ -65,6 +66,18 @@ niter = niter / niter.max(dim=("lat", "lon")) # removed 1 - ...
 # delete points that are desert in any model
 meaniter = niter.mean(dim='model')
 meaniter = meaniter.where(~np.isnan(niter).any(dim='model'))
+
+# aggregate to ar6 regions
+regions = regionmask.defined_regions.ar6.land.mask(meaniter.lon, meaniter.lat)
+region_means = meaniter.groupby(regions).mean()
+tmp = xr.full_like(meaniter, np.nan)
+for m, metric in enumerate(metrics):
+    for region in region_means.mask.values:
+        tmp[m,:,:] = tmp[m,:,:].where(regions != region, region_means.sel(mask=region, metric=metric))
+meaniter = tmp
+landmask = xr.open_dataarray('/net/so4/landclim/bverena/large_files/opscaling/landmask_cmip6-ng.nc')
+landmask = landmask.squeeze().drop(['time','month'])
+meaniter = meaniter.where(landmask)
 
 # plot
 proj = ccrs.Robinson()
