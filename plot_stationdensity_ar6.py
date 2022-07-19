@@ -54,7 +54,7 @@ grid = grid.to_array() / (1000*1000) # to km**2
 grid = grid / (1000*1000) # to Mio km**2
 
 # ar6 regions
-landmask = regionmask.defined_regions.natural_earth.land_110.mask(grid.lon, grid.lat)
+landmask = regionmask.defined_regions.natural_earth_v5_0_0.land_110.mask(grid.lon, grid.lat)
 regions = regionmask.defined_regions.ar6.land.mask(grid.lon, grid.lat)
 regions = regions.where(~np.isnan(landmask))
 
@@ -64,7 +64,6 @@ for i, (lat, lon) in enumerate(zip(df.lat, df.lon)):
     region = regions.sel(lat=lat.item(), lon=lon.item(), method='nearest').item()
     station_regions[i] = region
 
-import IPython; IPython.embed()
 #  calculate station density per region
 res = []
 test1 = 0
@@ -79,7 +78,8 @@ for region in range(int(regions.max().item())):
         res.append(no_stations / area_region)
     else:
         res.append(0)
-    print(region, no_stations, area_region)
+    #print(region, no_stations, area_region)
+    print(region, no_stations / area_region)
 import IPython; IPython.embed()
 # histogram plot
 from matplotlib.lines import Line2D

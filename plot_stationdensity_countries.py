@@ -47,8 +47,8 @@ area = np.repeat(area.values, shape[1]).reshape(shape)
 grid['area'] = (['lat','lon'], area)
 
 # ar6 regions
-landmask = regionmask.defined_regions.natural_earth.land_110.mask(grid.lon, grid.lat)
-regions = regionmask.defined_regions.natural_earth.countries_110.mask(grid.lon, grid.lat)
+landmask = regionmask.defined_regions.natural_earth_v5_0_0.land_110.mask(grid.lon, grid.lat)
+regions = regionmask.defined_regions.natural_earth_v5_0_0.countries_110.mask(grid.lon, grid.lat)
 regions = regions.where(~np.isnan(landmask))
 
 # assign each station its ar6 region
@@ -59,10 +59,9 @@ for i, (lat, lon) in enumerate(zip(df.lat, df.lon)):
 
 # histogram info
 res = []
-region_names = regionmask.defined_regions.natural_earth.countries_110.names
+region_names = regionmask.defined_regions.natural_earth_v5_0_0.countries_110.names
 region_no = []
 for region, name in enumerate(region_names):
-    print(region)
     no_stations = (station_regions == region).sum() # unitless
     area_region = grid['area'].where(regions == region).sum().values.item() / (1000*1000) # km**2
     area_region = area_region / (1000*1000) # Mio km**2
@@ -71,6 +70,8 @@ for region, name in enumerate(region_names):
     else:
         res.append(0)
     region_no.append(region)
+    print(region, no_stations / area_region)
+import IPython; IPython.embed()
 res = np.array(res)
 region_no = np.array(region_no)
 region_names = np.array(region_names)
