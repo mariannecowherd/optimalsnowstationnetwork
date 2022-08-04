@@ -197,26 +197,26 @@ df_gaps = df_gaps.assign_coords(depth_end=('stations',list_depth_end))
 # remove ocean stations
 df_gaps = df_gaps.where(df_gaps.koeppen != 0, drop=True)
 
-# remove stations without valid measurements (from qf)
-# TODO
-
-# save as netcdf
-df_gaps = df_gaps.rename('mrso')
-df_gaps.to_netcdf(f'{largefilepath}df_gaps.nc')
-
-# save cmip table as netcdf
-df_gaps = df_gaps.groupby('latlon_cmip').mean()
-
-# add lat and lon again to grouped station data
-lat_cmip = []
-lon_cmip = []
-for latlon in df_gaps.latlon_cmip:
-    lat, lon = latlon.item().split()
-    lat, lon = float(lat), float(lon)
-    lat_cmip.append(lat)
-    lon_cmip.append(lon)
-df_gaps = df_gaps.assign_coords(lat_cmip=('latlon_cmip',lat_cmip))
-df_gaps = df_gaps.assign_coords(lon_cmip=('latlon_cmip',lon_cmip))
-
-# save as netcdf
-df_gaps.to_netcdf(f'{largefilepath}df_gaps_cmip.nc')
+## remove stations without valid measurements (from qf)
+## TODO
+#
+## save as netcdf
+#df_gaps = df_gaps.rename('mrso')
+#df_gaps.to_netcdf(f'{largefilepath}df_gaps.nc')
+#
+## save cmip table as netcdf
+#df_gaps = df_gaps.groupby('latlon_cmip').mean()
+#
+## add lat and lon again to grouped station data
+#lat_cmip = []
+#lon_cmip = []
+#for latlon in df_gaps.latlon_cmip:
+#    lat, lon = latlon.item().split()
+#    lat, lon = float(lat), float(lon)
+#    lat_cmip.append(lat)
+#    lon_cmip.append(lon)
+#df_gaps = df_gaps.assign_coords(lat_cmip=('latlon_cmip',lat_cmip))
+#df_gaps = df_gaps.assign_coords(lon_cmip=('latlon_cmip',lon_cmip))
+#
+## save as netcdf
+#df_gaps.to_netcdf(f'{largefilepath}df_gaps_cmip.nc')
