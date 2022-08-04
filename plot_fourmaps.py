@@ -65,12 +65,12 @@ trend.plot(ax=ax2, cmap='coolwarm_r', transform=transf)
 method = 'systematic'
 modelname = 'MIROC6'
 metric = 'corr'
-testcase = '_savemap'
+testcase = 'savemap'
 
-with open(f"lats_systematic_{modelname}_{metric}_new.pkl", "rb") as f:
+with open(f"lats_systematic_{modelname}_{metric}_{testcase}.pkl", "rb") as f:
     latlist = pickle.load(f)
 
-with open(f"lons_systematic_{modelname}_{metric}_new.pkl", "rb") as f:
+with open(f"lons_systematic_{modelname}_{metric}_{testcase}.pkl", "rb") as f:
     lonlist = pickle.load(f)
 
 added = xr.full_like(trend, np.nan)
@@ -95,29 +95,32 @@ plt.show()
 
 obsmask = xr.open_dataarray(f'{largefilepath}obsmask.nc')
 agpop = ((crop > 50) | (pop > 30))
-doubling = xr.full_like(obsmask, False)
-doubling = doubling.where(~obsmask, True)
-doubling = (doubling | (added <= 2))
+doubling = ((added <= 1) | obsmask)
 
 fig = plt.figure(figsize=(10, 10))
-ax1 = fig.add_subplot(221, projection=proj)
-ax2 = fig.add_subplot(222, projection=proj)
-ax3 = fig.add_subplot(223, projection=proj)
-ax4 = fig.add_subplot(224, projection=proj)
+ax1 = fig.add_subplot(231, projection=proj)
+ax2 = fig.add_subplot(232, projection=proj)
+ax3 = fig.add_subplot(233, projection=proj)
+ax4 = fig.add_subplot(234, projection=proj)
+ax5 = fig.add_subplot(235, projection=proj)
 
 agpop.plot(ax=ax1, transform=transf, cmap='Greys')
 obsmask.plot(ax=ax2, transform=transf, cmap='Greys')
 (agpop & obsmask).plot(ax=ax3, transform=transf, cmap='Greys')
 doubling.plot(ax=ax4, transform=transf, cmap='Greys')
+(agpop & doubling).plot(ax=ax5, transform=transf, cmap='Greys')
 
 ax1.coastlines()
 ax2.coastlines()
 ax3.coastlines()
 ax4.coastlines()
+ax5.coastlines()
 
 ax1.set_title('(a) AgPop region')
 ax2.set_title('(b) Currently observed area')
 ax3.set_title('(c) AgPop currently observed')
-ax4.set_title('(d) AgPop observed after doubling')
+ax4.set_title('(d) Observed area after doubling of stations')
+ax5.set_title('(e) AgPop observed after doubling')
 
 plt.show()
+import IPython; IPython.embed()
