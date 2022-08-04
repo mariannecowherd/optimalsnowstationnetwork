@@ -15,14 +15,10 @@ modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR',
               'ACCESS-ESM1-5','BCC-CSM2-MR','CESM2','CMCC-ESM2',
               'CNRM-ESM2-1','CanESM5','E3SM-1-1','FGOALS-g3',
               'GFDL-ESM4','GISS-E2-1-H','INM-CM4-8','UKESM1-0-LL'] 
-modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR', # three models have weird results TODO include again
-              'BCC-CSM2-MR','CESM2','CMCC-ESM2',
-              'CNRM-ESM2-1','E3SM-1-1',
-              'GFDL-ESM4','GISS-E2-1-H','INM-CM4-8'] 
 metrics = ['r2','seasonality','corr','trend']
 strategies = ['random','interp','systematic']
 col = [col_random, col_swaths, col_real]
-testcase = 'highres'
+testcase = 'new'
 
 fig = plt.figure(figsize=(10, 10))
 ax1 = fig.add_subplot(221)
@@ -30,7 +26,8 @@ ax2 = fig.add_subplot(222)
 ax3 = fig.add_subplot(223)
 ax4 = fig.add_subplot(224)
 a = 0.2
-#plt.close # DEBUG
+#a = 0.5 # DEBUG
+#plt.close() # DEBUG
 
 
 frac_harmonised = np.arange(0,1.04,0.01)
@@ -61,6 +58,7 @@ for metric, ax in zip(metrics, (ax1,ax2,ax3,ax4)):
 
             # plot
             ax.plot(frac, corr, c=col[s], alpha=a, linewidth=0.5)
+            #plt.plot(frac, corr, c=col[s], alpha=a, linewidth=0.5) # DEBUG
 
             # calculate mean: since different number of steps,
             # first need to interpolate
@@ -107,10 +105,10 @@ ax2.grid(alpha=a)
 ax3.grid(alpha=a)
 ax4.grid(alpha=a)
 
-legend_colors = [Line2D([0], [0], marker='None', color=col_random, linewidth=2, label='Random'),
+legend_colors = [Line2D([0], [0], marker='None', color=col_random, linewidth=2, label='random'),
                  Line2D([0], [0], marker='None', color=col_swaths, linewidth=2, label='geographical distance'),
-                 Line2D([0], [0], marker='None', color=col_real, label='systematic')]
+                 Line2D([0], [0], marker='None', color=col_real, label='correlation-based')]
 ax2.legend(handles=legend_colors, loc='lower right', borderaxespad=0.)
 
-plt.show()
-#plt.savefig('compare_metrics.png')
+#plt.show()
+plt.savefig('compare_metrics.png')
