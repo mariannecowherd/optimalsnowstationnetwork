@@ -66,32 +66,37 @@ niter = niter / niter.max(dim=("lat", "lon")) # removed 1 - ...
 # delete points that are desert in any model
 meaniter = niter.mean(dim='model')
 meaniter = meaniter.where(~np.isnan(niter).any(dim='model'))
+meaniter.to_netcdf('meaniter.nc')
+import IPython; IPython.embed()
 
 # aggregate to ar6 regions
-regions = regionmask.defined_regions.ar6.land.mask(meaniter.lon, meaniter.lat)
-region_means = meaniter.groupby(regions).mean()
-tmp = xr.full_like(meaniter, np.nan)
-for m, metric in enumerate(metrics):
-    for region in region_means.mask.values:
-        tmp[m,:,:] = tmp[m,:,:].where(regions != region, region_means.sel(mask=region, metric=metric))
-meaniter = tmp
-landmask = xr.open_dataarray('/net/so4/landclim/bverena/large_files/opscaling/landmask_cmip6-ng.nc')
-landmask = landmask.squeeze().drop(['time','month'])
-meaniter = meaniter.where(landmask)
+#regions = regionmask.defined_regions.ar6.land.mask(meaniter.lon, meaniter.lat)
+#region_means = meaniter.groupby(regions).mean()
+#tmp = xr.full_like(meaniter, np.nan)
+#regions_icedesertobs = [0,3,20,36,40,44,45]
+#regions_selected = region_means.mask.values.tolist()
+#regions_selected = [region for region in regions_selected if region not in regions_icedesertobs]
+#for m, metric in enumerate(metrics):
+#    for region in regions_selected:
+#        tmp[m,:,:] = tmp[m,:,:].where(regions != region, region_means.sel(mask=region, metric=metric))
+#meaniter = tmp
+#landmask = xr.open_dataarray('/net/so4/landclim/bverena/large_files/opscaling/landmask_cmip6-ng.nc')
+#landmask = landmask.squeeze().drop(['time','month'])
+#meaniter = meaniter.where(landmask)
 
 # plot
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
 
-fig = plt.figure(figsize=(15, 5))
-ax1 = fig.add_subplot(241, projection=proj)
-ax2 = fig.add_subplot(242, projection=proj)
-ax3 = fig.add_subplot(243, projection=proj)
-ax4 = fig.add_subplot(244, projection=proj)
-ax5 = fig.add_subplot(245)
-ax6 = fig.add_subplot(246)
-ax7 = fig.add_subplot(247)
-ax8 = fig.add_subplot(248)
+fig = plt.figure(figsize=(10, 10))
+ax1 = fig.add_subplot(421, projection=proj)
+ax2 = fig.add_subplot(423, projection=proj)
+ax3 = fig.add_subplot(425, projection=proj)
+ax4 = fig.add_subplot(427, projection=proj)
+ax5 = fig.add_subplot(422)
+ax6 = fig.add_subplot(424)
+ax7 = fig.add_subplot(426)
+ax8 = fig.add_subplot(428)
 
 meaniter[0,:,:].plot.contourf(ax=ax1, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
 meaniter[1,:,:].plot.contourf(ax=ax2, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
@@ -103,13 +108,14 @@ ax2.coastlines()
 ax3.coastlines()
 ax4.coastlines()
 
-ax1.set_title('(a) Absolute values')
+ax1.set_title('(a) Mean monthly values')
 ax2.set_title('(b) Mean seasonal cycle')
-ax3.set_title('(c) Anomalies')
-ax4.set_title('(d) Trend')
+ax3.set_title('(c) Monthly anomalies')
+ax4.set_title('(d) Long-term trend')
 
-cbar_ax = fig.add_axes([0.91, 0.53, 0.02, 0.3]) # left bottom width height
-cbar = fig.colorbar(im, cax=cbar_ax)
+#cbar_ax = fig.add_axes([0.91, 0.53, 0.02, 0.3]) # left bottom width height
+cbar_ax = fig.add_axes([0.15, 0.07, 0.3, 0.02]) # left bottom width height
+cbar = fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
 cbar.set_label('mean rank percentile')
 
 
@@ -117,7 +123,9 @@ import xesmf as xe
 regridder = xe.Regridder(niter, koeppen, 'bilinear', reuse_weights=False)
 niter = regridder(niter)
 koeppen_classes = ['Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df']
+koeppen_classes = ['Af','Am','Aw','BS','Cs','Cw','Cf','Ds','Dw','Df'] # BW is removed
 koeppen_ints = np.arange(1,12).astype(int)
+koeppen_ints = [1,2,3,5,6,7,8,9,10,11]
 
 #fig = plt.figure(figsize=(10, 10))
 #ax1 = fig.add_subplot(221)
@@ -157,4 +165,7 @@ ax8.set_xticklabels(koeppen_classes)
 #ax7.set_title('(a) Anomalies')
 #ax8.set_title('(c) Trend')
 ax5.set_ylabel('mean rank percentile')
+ax6.set_ylabel('mean rank percentile')
+ax7.set_ylabel('mean rank percentile')
+ax8.set_ylabel('mean rank percentile')
 plt.savefig('metrics_maps.png')
