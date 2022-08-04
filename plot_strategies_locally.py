@@ -25,11 +25,13 @@ for metric in metrics:
         min_frac = min(data.mrso.frac_observed)
         double_frac = min_frac*2
 
-        resmap = data.mrso.sel(frac_observed=double_frac, method='nearest') - \
-                 data.mrso.sel(frac_observed=min_frac, method='nearest')
-        import IPython; IPython.embed()
-        resmap = resmap.drop(['band','variable'])
-        resmap.to_netcdf(f'resmap_{model}_{metric}.nc')
+        orig = data.mrso.sel(frac_observed=min_frac, method='nearest')
+        double = data.mrso.sel(frac_observed=double_frac, method='nearest')
+        orig = orig.drop(['band','variable','frac_observed'])
+        double = double.drop(['band','variable','frac_observed'])
+        print(double.coords)
+        orig.to_netcdf(f'orig_{model}_{metric}.nc')
+        double.to_netcdf(f'double_{model}_{metric}.nc')
 
 # calc and plot ar6 regions
 proj = ccrs.Robinson()
