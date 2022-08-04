@@ -37,13 +37,26 @@ def rename_vars(data):
         data['time'] = data.indexes['time'].to_datetimeindex()
     return data
 
-def open_cmip_suite(varname, modelname, experimentname, ensemblename):
+#def open_cmip_suite(varname, modelname, experimentname, ensemblename):
+#    filenames = glob.glob(f'{cmip6_path}{varname}_mon_{modelname}_{experimentname}_{ensemblename}_*.nc')
+#    print(f'{cmip6_path}{varname}_mon_{modelname}_{experimentname}_{ensemblename}_*.nc')
+#    filenames = filenames[0]
+#    print(filenames)
+#    data = xr.open_mfdataset(filenames, 
+#                             combine='nested', # timestamp problem
+#                             concat_dim=None,  # timestamp problem
+#                             preprocess=rename_vars)  # rename vars to model name
+#    data = data.to_array(dim='model').rename(varname)
+#    data.coords['lon'] = (data.coords['lon'] + 180) % 360 - 180
+#    data = data.sortby('lon')
+#    #data = data.mean(dim='variable').load() # here for now
+#    #data = data.load()
+#
+#    return data
+
+def open_cmip_suite(modelname, varname):
     cmip6_path = f'/net/atmos/data/cmip6-ng/{varname}/mon/g025/'
-    filenames = glob.glob(f'{cmip6_path}{varname}_mon_{modelname}_{experimentname}_{ensemblename}_*.nc')
-    print(f'{cmip6_path}{varname}_mon_{modelname}_{experimentname}_{ensemblename}_*.nc')
-    filenames = filenames[0]
-    print(filenames)
-    data = xr.open_mfdataset(filenames, 
+    data = xr.open_mfdataset(cmip6_path + f'{varname}_mon_{modelname}_ssp370_r1i1*_g025.nc', 
                              combine='nested', # timestamp problem
                              concat_dim=None,  # timestamp problem
                              preprocess=rename_vars)  # rename vars to model name
@@ -55,30 +68,36 @@ def open_cmip_suite(varname, modelname, experimentname, ensemblename):
 
     return data
 
-modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR',
-              'ACCESS-ESM1-5','BCC-CSM2-MR','CESM2','CMCC-ESM2',
-              'CNRM-ESM2-1','CanESM5','E3SM-1-1','FGOALS-g3',
-              'GFDL-ESM4','GISS-E2-1-H','INM-CM4-8',#'MCM-UA-1-0', # MCM does not have pr
-              'UKESM1-0-LL'] #NorESM does only have esm-ssp585
-ensemblenames = ['r1i1p1f3','r1i1p1f1','r1i1p1f1','r1i1p1f1',
-                 'r10i1p1f1','r1i1p1f1','r1i1p1f1','r1i1p1f1',
-                 'r1i1p1f2','r1i1p1f1','r1i1p1f1','r1i1p1f1',
-                 'r1i1p1f1','r1i1p3f1','r1i1p1f1','r1i1p1f2']
-ensemblename = '*i1*' # same initialisation, rest doesnt matter
-for modelname, ensemblename in zip(modelnames,ensemblenames):
+cmip6_path = f'/net/atmos/data/cmip6-ng/mrso/mon/g025/'
+filepaths = glob.glob(f'{cmip6_path}mrso_mon_*_ssp370_*r1i1*_g025.nc')
+modelnames = [filepath.split('_')[2] for filepath in filepaths]
+modelnames.remove('MCM-UA-1-0') # does not have pr
+#modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR',
+#              'ACCESS-ESM1-5','BCC-CSM2-MR','CESM2','CMCC-ESM2',
+#              'CNRM-ESM2-1','CanESM5','E3SM-1-1','FGOALS-g3',
+#              'GFDL-ESM4','GISS-E2-1-H','INM-CM4-8',#'MCM-UA-1-0', # MCM does not have pr
+#              'UKESM1-0-LL'] #NorESM does only have esm-ssp585
+#ensemblenames = ['r1i1p1f3','r1i1p1f1','r1i1p1f1','r1i1p1f1',
+#                 'r10i1p1f1','r1i1p1f1','r1i1p1f1','r1i1p1f1',
+#                 'r1i1p1f2','r1i1p1f1','r1i1p1f1','r1i1p1f1',
+#                 'r1i1p1f1','r1i1p3f1','r1i1p1f1','r1i1p1f2']
+#ensemblename = '*i1*' # same initialisation, rest doesnt matter
+#for modelname, ensemblename in zip(modelnames,ensemblenames):
+for modelname in modelnames:
+    print(modelname)
     #modelname = '*'
-    experimentname = 'ssp585'
+    #experimentname = 'ssp585'
     #ensemblename = 'r1i1p1f1'
-    mrso = open_cmip_suite('mrso', modelname, experimentname, ensemblename)
-    tas = open_cmip_suite('tas', modelname, experimentname, ensemblename)
-    pr = open_cmip_suite('pr', modelname, experimentname, ensemblename)
+    mrso = open_cmip_suite(modelname, 'mrso')
+    tas = open_cmip_suite(modelname, 'tas')
+    pr = open_cmip_suite(modelname, 'pr')
 
     # cut out 2014 to 2050
     mrso = mrso.sel(time=slice('2015','2050'))
     tas = tas.sel(time=slice('2015','2050'))
     pr = pr.sel(time=slice('2015','2050'))
 
-    # cut out Greenland and Antarctica for landmask
+    # cut out Greenland and Antarctica and ocean for landmask
     n_greenland = regionmask.defined_regions.natural_earth_v5_0_0.countries_110.map_keys('Greenland')
     n_antarctica = regionmask.defined_regions.natural_earth_v5_0_0.countries_110.map_keys('Antarctica')
     mask = regionmask.defined_regions.natural_earth_v5_0_0.countries_110.mask(mrso)
@@ -89,7 +108,7 @@ for modelname, ensemblename in zip(modelnames,ensemblenames):
     # cut out deserts
     largefilepath = '/net/so4/landclim/bverena/large_files/'
     koeppen = xr.open_dataset(f'{largefilepath}koeppen_simple.nc').to_array()
-    regridder = xe.Regridder(koeppen, mrso, 'bilinear')
+    regridder = xe.Regridder(koeppen, mrso, 'bilinear') # does not lead to fractional classes prob because downsampling not up
     koeppen = regridder(koeppen)
     isdesert = koeppen == 4
     #nyears = len(np.unique(pr["time.year"]))
@@ -98,6 +117,11 @@ for modelname, ensemblename in zip(modelnames,ensemblenames):
     mrso = mrso.where(~isdesert)   
     tas = tas.where(~isdesert)   
     pr = pr.where(~isdesert)   
+
+    # create landmask of valid (not ice or desert) land mask
+    landmask = mask.where((mask != n_greenland) & (mask != n_antarctica))
+    landmask = ~np.isnan(landmask)
+    landmask = landmask.where(~isdesert, False)
 
     # create lagged features
     tas_1month = tas.copy(deep=True).shift(time=1, fill_value=0).rename('tas_1m')
@@ -133,8 +157,7 @@ for modelname, ensemblename in zip(modelnames,ensemblenames):
                      pr_7month, pr_8month, pr_9month, pr_10month, pr_11month, pr_12month])
 
     # save
-    # TODO save individual landmask
     mrso = mrso.to_dataset(name="mrso")
     mrso.to_netcdf(f'{upscalepath}mrso_{modelname}.nc')
     pred.to_netcdf(f'{upscalepath}pred_{modelname}.nc')
-    #mrso_land.to_netcdf(f'{largefilepath}mrso_land_{experimentname}.nc')
+    landmask.to_netcdf(f'{upscalepath}landmask.nc')
