@@ -25,8 +25,8 @@ logging.getLogger('GDAL').setLevel(logging.WARNING)
 
 # define options
 parser = argparse.ArgumentParser()
-parser.add_argument('--method', '-m', dest='method', type=str)
-parser.add_argument('--metric', '-p', dest='metric', type=str)
+parser.add_argument('--method', '-m', dest='method', type=str) # eg systematic
+parser.add_argument('--metric', '-p', dest='metric', type=str) # eg corr
 parser.add_argument('--model', '-c', dest='model', type=str)
 args = parser.parse_args()
 
@@ -122,8 +122,11 @@ while True:
         unobsmask.loc[lat,lon] = False
         if landmask.loc[lat,lon].item(): # obs gridpoint if station contained and on CMIP land 
             obsmask.loc[lat,lon] = True
-    import IPython; IPython.embed()
-    #obsmask.to_netcdf(f'{largefilepath}opscaling/obsmask.nc')
+
+    if i == 0:
+        obsmask.to_netcdf(f'{largefilepath}opscaling/obsmask_{modelname}.nc')
+        landmask.to_netcdf(f'{largefilepath}opscaling/landmask_{modelname}.nc')
+        quit() # DEBUG
 
     # divide into obs and unobs gridpoints
     obslat, obslon = np.where(obsmask)
@@ -289,7 +292,7 @@ while True:
     logging.info(f'iteration {i} obs landpoints {len(latlist)} mean metric {mean_corr}')
 
     # save intermediate results
-    testcase = '_savemap'
+    testcase = '_new'
     with open(f'corr_{method}_{modelname}_{metric}{testcase}.pkl','wb') as f:
         pickle.dump(corrlist, f)
 
