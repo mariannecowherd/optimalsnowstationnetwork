@@ -67,19 +67,21 @@ for region, d in zip(range(int(regions.max().item())), res):
 density = density.where(~np.isnan(landmask))
 
 # plot
+fs = 25
 cmap = plt.get_cmap('Greens').copy()
 bad_color = 'lightgrey'
 cmap.set_under(bad_color)
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
-fig = plt.figure(figsize=(10,6))
+fig = plt.figure(figsize=(20,10))
 ax = fig.add_subplot(111, projection=proj)
 im = density.plot(ax=ax, add_colorbar=False, cmap=cmap, transform=transf, 
              vmin=1, vmax=200)#, cbar_kwargs=cbar_kwargs)
-regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), ax=ax, add_label=False, proj=transf)
-ax.set_title('station density per AR6 region') 
+regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='lightcoral', linewidth=1), ax=ax, add_label=False, proj=transf)
+ax.set_title('(c) station density per AR6 region', fontsize=fs)
 cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax)
-cbar.set_label('stations per million $km^2$')
+cbar.ax.tick_params(labelsize=fs)
+cbar.set_label('stations per million $km^2$', fontsize=fs)
 ax.coastlines()
-#plt.show()
+plt.savefig('stationdensity_ar6.png')

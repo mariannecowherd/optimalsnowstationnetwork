@@ -22,27 +22,11 @@ inactive_networks = ['HOBE','PBO_H20','IMA_CAN1','SWEX_POLAND','CAMPANIA',
                      'CHINA','IOWA','RUSWET-VALDAI','RUSWET-GRASS']
 df = df.where(~df.network.isin(inactive_networks), drop=True)
 
-# select surface layer soil moisture
-lat = df.lat.groupby('station_id').first()
-lon = df.lon.groupby('station_id').first()
-network = df.network.groupby('station_id').first()
-country = df.country.groupby('station_id').first()
-df = df.groupby('station_id').first()
-df = df.assign_coords(network=('station_id',network.data))
-df = df.assign_coords(country=('station_id',country.data))
-df = df.assign_coords(lat=('station_id',lat.data))
-df = df.assign_coords(lon=('station_id',lon.data))
-df = df.sortby('country')
-
 # koeppen
-#filename = f'{largefilepath}Beck_KG_V1_present_0p083.tif'
-#koeppen = xr.open_rasterio(filename)
-#regions = koeppen.rename({'x':'lon','y':'lat'}).squeeze()
-regions = xr.open_dataarray(f'{largefilepath}koeppen_simple.nc')
+regions = xr.open_dataarray(f'{largefilepath}opscaling/koeppen_simple.nc')
 
 # area per grid point
-#res = 0.01
-res = 0.5
+res = np.abs(np.diff(regions.lat)[0]) # has to be resolution of "regions" for correct grid area calc
 grid = xr.Dataset({'lat': (['lat'], regions.lat.data),
                    'lon': (['lon'], regions.lon.data)})
 shape = (len(grid.lat),len(grid.lon))
@@ -69,52 +53,21 @@ for region in np.arange(1,12):
         res.append(no_stations / area_region)
     else:
         res.append(0)
-    print(region, no_stations, area_region)
+    print(f'region no {region}, station density {np.round(no_stations / area_region,2)} stations per Mio km^2')
 n = len(res)
 region_names = ['Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df']
 
 # histogram plot
+fs = 25
 from matplotlib.lines import Line2D
-fig = plt.figure(figsize=(10,7))
+import matplotlib as mpl
+mpl.rcParams['xtick.labelsize'] = fs 
+fig = plt.figure(figsize=(10,10))
 ax = fig.add_subplot(111)
 ax.barh(np.arange(n), res[::-1], color='darkgreen')
 ax.set_yticks(np.arange(n))
-ax.set_yticklabels(region_names[::-1])#, rotation=90) 
-ax.set_ylabel('AR6 region')
-#ax.set_ylabel('station density [1 station per $x^2 km^2$]')
-ax.set_xlabel('station density [stations per Mio $km^2$]')
-ax.set_title('(a) station density per Koppen-Geiger climate')
-#ax.hlines(182, -10, 100, colors='orange')
-#ax.hlines(84, -10, 100, colors='brown')
-#ax.set_xlim([0,n])
-#ax.set_ylim([0,2000])
-#kloster = [Line2D([0], [0], marker='s', color='white', linewidth=0, markersize=20, label='Kloster et al (2012)')]
-#gruber = [Line2D([0], [0], marker='s', color='white', linewidth=0, markersize=20, label='Gruber et al (2018)')]
-#ax.legend(handles=kloster, bbox_to_anchor=(0.9, 0.88), loc='center left', borderaxespad=0., frameon=False)
-#ax.legend(handles=gruber, bbox_to_anchor=(0.9, 0.88), loc='center left', borderaxespad=0., frameon=False)
+ax.set_yticklabels(region_names[::-1], fontsize=fs)#, rotation=90) 
+ax.set_ylabel('Koppen-Geiger climate', fontsize=fs)
+ax.set_xlabel('station density [stations per Mio $km^2$]', fontsize=fs)
+ax.set_title('(b) station density per Koppen-Geiger climate', fontsize=fs)
 plt.savefig('stationdensity_koeppen.png')
-quit()
-
-# create world map
-density = xr.full_like(regions, 0)
-for region, d in zip(range(31), res):
-    density = density.where(regions != region, d) # unit stations per bio square km
-#density = density.where(~np.isnan(landmask))
-
-# plot
-cmap = plt.get_cmap('Greens').copy()
-bad_color = 'lightsteelblue'
-cmap.set_bad(bad_color)
-proj = ccrs.Robinson()
-transf = ccrs.PlateCarree()
-fig = plt.figure(figsize=(20,5))
-ax = fig.add_subplot(111, projection=proj)
-cbar_kwargs = {'label': 'stations per million $km^2$'}
-#landmask.plot(ax=ax, add_colorbar=False, cmap='binary', transform=transf, vmin=0, vmax=10)
-density.plot(ax=ax, add_colorbar=True, cmap=cmap, transform=transf, 
-             #vmin=0, vmax=200, cbar_kwargs=cbar_kwargs)
-             cbar_kwargs=cbar_kwargs)
-ax.set_title('station density per koeppen-geiger climate') 
-ax.coastlines()
-plt.show()
-#plt.savefig('ar6_stationdensity.png')
