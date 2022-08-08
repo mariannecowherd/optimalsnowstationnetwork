@@ -18,7 +18,7 @@ regions = regionmask.defined_regions.ar6.land.mask(obsmask.lon, obsmask.lat)
 regions = regions.where(~np.isnan(landmask))
 
 # area per grid point
-res = 2.5 # has to be resolution of "regions" for correct grid area calc
+res = np.abs(np.diff(regions.lat)[0]) # has to be resolution of "regions" for correct grid area calc
 grid = xr.Dataset({'lat': (['lat'], regions.lat.data),
                    'lon': (['lon'], regions.lon.data)})
 shape = (len(grid.lat),len(grid.lon))
@@ -46,23 +46,50 @@ for region, d in zip(range(int(regions.max().item())), density_future):
 density_f = density_f.where(~np.isnan(landmask))
 
 # plot
+#fs = 25
+#cmap = plt.get_cmap('Greens').copy()
+#bad_color = 'lightgrey'
+#cmap.set_under(bad_color)
+#proj = ccrs.Robinson()
+#transf = ccrs.PlateCarree()
+#fig = plt.figure(figsize=(20,10))
+#ax1 = fig.add_subplot(121, projection=proj)
+#ax2 = fig.add_subplot(122, projection=proj)
+#
+#density_c.plot(ax=ax1, add_colorbar=False, cmap=cmap, transform=transf, 
+#             vmin=1, vmax=20)#, cbar_kwargs=cbar_kwargs)
+#im = density_f.plot(ax=ax2, add_colorbar=False, cmap=cmap, transform=transf, 
+#             vmin=1, vmax=20)#, cbar_kwargs=cbar_kwargs)
+#regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), ax=ax1, add_label=False, proj=transf)
+#regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), ax=ax2, add_label=False, proj=transf)
+#cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
+#cbar = fig.colorbar(im, cax=cbar_ax)
+#cbar.ax.tick_params(labelsize=fs)
+#cbar.set_label('stations per million $km^2$', fontsize=fs)
+#ax1.set_title('current station density per AR6 region', fontsize=fs) 
+#ax2.set_title('future station density per AR6 region', fontsize=fs)
+#ax1.coastlines()
+#ax2.coastlines()
+#plt.savefig('change_stationdensity.png')
+
+# plot difference
+fs = 25
 cmap = plt.get_cmap('Greens').copy()
 bad_color = 'lightgrey'
 cmap.set_under(bad_color)
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
-fig = plt.figure(figsize=(10,6))
-ax1 = fig.add_subplot(121, projection=proj)
-ax2 = fig.add_subplot(122, projection=proj)
+fig = plt.figure(figsize=(20,10))
+ax = fig.add_subplot(111, projection=proj)
 
-im = density_c.plot(ax=ax1, add_colorbar=False, cmap=cmap, transform=transf, 
-             vmin=1, vmax=20)#, cbar_kwargs=cbar_kwargs)
-im = density_f.plot(ax=ax2, add_colorbar=False, cmap=cmap, transform=transf, 
-             vmin=1, vmax=20)#, cbar_kwargs=cbar_kwargs)
-regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), ax=ax1, add_label=False, proj=transf)
-regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), ax=ax2, add_label=False, proj=transf)
-ax1.set_title('current station density per AR6 region') 
-ax2.set_title('future station density per AR6 region') 
-ax1.coastlines()
-ax2.coastlines()
-plt.show()
+im = (density_f - density_c).plot(ax=ax, add_colorbar=False, cmap=cmap, 
+                                  transform=transf, vmin=0)
+regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), 
+                                         ax=ax, add_label=False, proj=transf)
+cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
+cbar = fig.colorbar(im, cax=cbar_ax)
+cbar.ax.tick_params(labelsize=fs)
+cbar.set_label('stations per million $km^2$', fontsize=fs)
+ax.set_title('change in station density per AR6 region \nafter doubling station number', fontsize=fs) 
+ax.coastlines()
+plt.savefig('change_stationdensity.png')
