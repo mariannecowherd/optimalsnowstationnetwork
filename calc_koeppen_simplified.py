@@ -1,5 +1,7 @@
+import numpy as np
 import xarray as xr
 
+largefilepath = '/net/so4/landclim/bverena/large_files/'
 koeppen = xr.open_rasterio(f'{largefilepath}Beck_KG_V1_present_0p5.tif')
 koeppen = koeppen.rename({'x':'lon','y':'lat'}).squeeze()
 koeppen_simple = xr.full_like(koeppen, np.nan)
@@ -9,4 +11,5 @@ for lat in koeppen.lat:
     for lon in koeppen.lon:
         koeppen_simple.loc[lat,lon] = kdict[koeppen.loc[lat,lon].item()]
     print(lat.item())
+koeppen_simple = koeppen_simple.to_dataset(name="koeppen_class")
 koeppen_simple.to_netcdf(f'{largefilepath}opscaling/koeppen_simple.nc')
