@@ -22,13 +22,13 @@ inactive_networks = ['HOBE','PBO_H20','IMA_CAN1','SWEX_POLAND','CAMPANIA',
                      'CHINA','IOWA','RUSWET-VALDAI','RUSWET-GRASS']
 df = df.where(~df.network.isin(inactive_networks), drop=True)
 
-# koeppen
-regions = xr.open_dataarray(f'{largefilepath}opscaling/koeppen_simple.nc')
+# landmask
+landmask = xr.open_dataarray(f'{largefilepath}opscaling/landmask.nc')
 
 # area per grid point
-res = np.abs(np.diff(regions.lat)[0]) # has to be resolution of "regions" for correct grid area calc
-grid = xr.Dataset({'lat': (['lat'], regions.lat.data),
-                   'lon': (['lon'], regions.lon.data)})
+res = np.abs(np.diff(landmask.lat)[0]) # has to be resolution of "regions" for correct grid area calc
+grid = xr.Dataset({'lat': (['lat'], landmask.lat.data),
+                   'lon': (['lon'], landmask.lon.data)})
 shape = (len(grid.lat),len(grid.lon))
 earth_radius = 6371*1000 # in m
 weights = np.cos(np.deg2rad(grid.lat))
