@@ -22,7 +22,9 @@ inactive_networks = ['HOBE','PBO_H20','IMA_CAN1','SWEX_POLAND','CAMPANIA',
 data = data.where(~data.network.isin(inactive_networks), drop=True)
 
 # plot worldmap with all & still active stations on koeppen climates
-colors = ['white', 'darkgreen', 'forestgreen', 'darkseagreen', 'linen', 'tan', 'gold', 'lightcoral', 'peru', 'yellowgreen', 'olive', 'olivedrab', 'lightgrey', 'whitesmoke']
+colors = ['white', 'darkgreen', 'forestgreen', 'darkseagreen', 'linen', 'tan', 
+          'gold', 'lightcoral', 'peru', 'yellowgreen', 'olive', 'olivedrab', 
+          'lightgrey', 'whitesmoke']
 fs = 25
 cmap = LinearSegmentedColormap.from_list('koeppen', colors, N=len(colors))
 proj = ccrs.Robinson()
@@ -34,6 +36,4 @@ cbar_kwargs = {'orientation': 'horizontal', 'label': ''}
 koeppen_simple.plot(ax=ax, cmap=cmap, cbar_kwargs=cbar_kwargs, transform=transf)
 ax.scatter(data.lon, data.lat, transform=transf, c='black', marker='v', s=10)
 ax.set_title('ISMN station network', fontsize=fs)
-#ax.set_ticklabels(['a','b'])
 plt.savefig('worldmap_stations.png')
-#plt.savefig('stations_empty.png')
