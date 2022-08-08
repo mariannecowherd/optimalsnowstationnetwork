@@ -1,6 +1,7 @@
 import xarray as xr
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import regionmask
 import numpy as np
 import xesmf as xe
@@ -28,7 +29,7 @@ double = double.mean(dim='model')
 landmask = regionmask.defined_regions.natural_earth_v5_0_0.land_110.mask(orig.lon, orig.lat)
 regions = regionmask.defined_regions.ar6.land.mask(orig.lon, orig.lat)
 regions = regions.where(~np.isnan(landmask))
-koeppen = xr.open_dataarray(f'{largefilepath}koeppen_simple.nc')
+koeppen = xr.open_dataarray(f'{largefilepath}opscaling/koeppen_simple.nc')
 countries = regionmask.defined_regions.natural_earth_v5_0_0.countries_110.mask(orig.lon, orig.lat)
 countries = countries.where(~np.isnan(landmask))
 pop = xr.open_dataarray(f'{largefilepath}opscaling/population_density_regridded.nc')
@@ -37,7 +38,7 @@ agpop = ((crop > 50) | (pop > 30))
 agpop = agpop.drop(['band','spatial_ref','raster']).squeeze()
 
 # area per grid point
-res = 2.5 # has to be resolution of "regions" for correct grid area calc
+res = np.abs(np.diff(regions.lat)[0]) # has to be resolution of "regions" for correct grid area calc
 grid = xr.Dataset({'lat': (['lat'], regions.lat.data),
                    'lon': (['lon'], regions.lon.data)})
 shape = (len(grid.lat),len(grid.lon))
@@ -50,7 +51,7 @@ grid = grid.to_array() / (1000*1000) # to km**2
 grid = grid / (1000*1000) # to Mio km**2
 
 # area per grid point KOEPPEN
-res = 0.5 # has to be resolution of "regions" for correct grid area calc
+res = np.abs(np.diff(koeppen.lat)[0]) # has to be resolution of "regions" for correct grid area calc
 grid_k = xr.Dataset({'lat': (['lat'], koeppen.lat.data),
                    'lon': (['lon'], koeppen.lon.data)})
 shape = (len(grid_k.lat),len(grid_k.lon))
@@ -99,10 +100,10 @@ double_countries = double.groupby(countries).mean()
 double_agpop = double.groupby(agpop).mean()
 
 # drop desert and ice regions from koeppen
-orig_koeppen = orig_koeppen.drop_sel(group=[0,4,12,13])
-double_koeppen = double_koeppen.drop_sel(group=[0,4,12,13])
-den_koeppen_current = den_koeppen_current.drop_sel(group=[0,4,12,13])
-den_koeppen_future = den_koeppen_future.drop_sel(group=[0,4,12,13])
+orig_koeppen = orig_koeppen.drop_sel(koeppen_class=[0,4,12,13])
+double_koeppen = double_koeppen.drop_sel(koeppen_class=[0,4,12,13])
+den_koeppen_current = den_koeppen_current.drop_sel(koeppen_class=[0,4,12,13])
+den_koeppen_future = den_koeppen_future.drop_sel(koeppen_class=[0,4,12,13])
 koeppen_names = ['Af','Am','Aw','BS','Cs','Cw','Cf','Ds','Dw','Df']
 
 # drop deserts and ice regions from ar6
@@ -127,52 +128,40 @@ idxs = [idx for idx in idxs if idx not in ar6_exclude_desertice]
 idxs = [idx for idx in idxs if idx not in ar6_exclude]
 region_names = np.array(region_names)[idxs]
 
-# plot
-#fig = plt.figure(figsize=(10,5))
-#ax = fig.add_subplot(111)
-#ax.scatter(den_ar6,res_ar6)
-#ax.scatter(den_countries,res_countries)
-#ax.scatter(den_koeppen,res_koeppen)
-#for label,x,y in zip(region_names, den_ar6, res_ar6):
-#    ax.text(x=x,y=y,s=label)
-#for label,x,y in zip(countries_names, den_countries, res_countries):
-#    ax.text(x=x,y=y,s=label)
-#for label,x,y in zip(koeppen_names, den_koeppen, res_koeppen):
-#    ax.text(x=x,y=y,s=label)
-#ax.set_xlabel('change in station density [fraction]')
-#ax.set_xlim([1,60])
-#ax.set_ylabel('change in person correlation [absolute]')
-#ax.set_ylim([0,0.30])
-#ax.set_xscale('log')
-#ax.grid()
-#plt.show()
+# create legend
+a = 0.5
+legend_elements = [Line2D([0], [0], marker='o', color='w', 
+                   label='current station density', markerfacecolor=col_real,
+                   markeredgecolor='black', alpha=a, markersize=10),
+                   Line2D([0], [0], marker='o', color='w', 
+                   label='double station density', markerfacecolor=col_real,
+                   markeredgecolor=col_real, alpha=1, markersize=10)]
 
+
+# plot
 fig = plt.figure(figsize=(10,10))
 ax1 = fig.add_subplot(211)
 ax2 = fig.add_subplot(212)
-#ax3 = fig.add_subplot(313)
-a = 0.5
 
-for x1,y1,x2,y2 in zip(den_ar6_current,orig_ar6,den_ar6_future,double_ar6):
-    ax1.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
-for label,x,y in zip(region_names, den_ar6_future, double_ar6):
-    ax1.text(x=x,y=y,s=label)
-ax1.scatter(den_ar6_current,orig_ar6, c=col_random, edgecolor='black', alpha=a)
-ax1.scatter(den_ar6_future,double_ar6, c=col_random)
+ax1.grid()
+ax2.grid()
 
-#ax2.scatter(den_countries_current,orig_countries, c=col_swaths)
-#ax2.scatter(den_countries_future,double_countries, c=col_swaths, edgecolor='black')
-#for x1,y1,x2,y2 in zip(den_countries_current,orig_countries,den_countries_future,double_countries):
-#    ax2.plot([x1, x2], [y1, y2], c=col_swaths)
-#for label,x,y in zip(countries_names, den_countries_future, double_countries):
-#    ax2.text(x=x,y=y,s=label)
 
 for x1,y1,x2,y2 in zip(den_koeppen_current,orig_koeppen,den_koeppen_future,double_koeppen):
-    ax2.plot([x1, x2], [y1, y2], c=col_real, alpha=a)
+    ax1.plot([x1, x2], [y1, y2], c=col_real, alpha=a)
 for label,x,y in zip(koeppen_names, den_koeppen_future, double_koeppen):
+    ax1.text(x=x,y=y,s=label)
+ax1.scatter(den_koeppen_current,orig_koeppen, c=col_real, edgecolor='black', alpha=a)
+ax1.scatter(den_koeppen_future,double_koeppen, c=col_real)
+
+
+for x1,y1,x2,y2 in zip(den_ar6_current,orig_ar6,den_ar6_future,double_ar6):
+    ax2.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
+for label,x,y in zip(region_names, den_ar6_future, double_ar6):
     ax2.text(x=x,y=y,s=label)
-ax2.scatter(den_koeppen_current,orig_koeppen, c=col_real, edgecolor='black', alpha=a)
-ax2.scatter(den_koeppen_future,double_koeppen, c=col_real)
+ax2.scatter(den_ar6_current,orig_ar6, c=col_random, edgecolor='black', alpha=a)
+ax2.scatter(den_ar6_future,double_ar6, c=col_random)
+
 
 ax1.set_xlabel('stations per Mio $km^2$')
 ax2.set_xlabel('stations per Mio $km^2$')
@@ -182,7 +171,6 @@ ax2.set_ylabel('pearson correlation')
 ax1.set_ylim([0.15,0.9])
 ax2.set_ylim([0.15,0.9])
 
-ax1.grid()
-ax2.grid()
+ax1. legend(handles=legend_elements)
 
 plt.savefig('doubling_scatter.pdf')
