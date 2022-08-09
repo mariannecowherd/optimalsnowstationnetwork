@@ -12,18 +12,23 @@ col_swaths = colors[2,:]
 col_real = colors[0,:]
 
 upscalepath = '/net/so4/landclim/bverena/large_files/opscaling/'
-#modelnames = ['IPSL-CM6A-LR','HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR']
 modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR',
               'ACCESS-ESM1-5','BCC-CSM2-MR','CESM2','CMCC-ESM2',
               'CNRM-ESM2-1','CanESM5','E3SM-1-1','FGOALS-g3',
               'GFDL-ESM4','GISS-E2-1-H','INM-CM4-8','UKESM1-0-LL'] 
+#modelnames = ['ACCESS-CM2 ','ACCESS-ESM1-5 ','BCC-CSM2-MR ','CESM2-WACCM ',
+#              'CESM2 ','CMCC-CM2-SR5 ','CMCC-ESM2 ','CNRM-CM6-1-HR ',
+#              'CNRM-CM6-1 ','CNRM-ESM2-1 ','CanESM5-CanOE ','CanESM5 E3SM-1-1 ',
+#              'EC-Earth3-AerChem ','EC-Earth3-Veg-LR ','EC-EARTH3-Veg ',
+#              'FGOALS-f3-L ','FGOALS-g3 ','GFDL-ESM4 ','GISS-E2-1-G ',
+#              'GISS-E2-1-H ','GISS-E2-2-G ','HadGEM3-GC31-MM ','INM-CM4-8 ',
+#              'INM-CM5-0 ','IPSL-CM6A-LR ','MIROC-ES2L ','MIROC6 ',
+#              'MPI-ESM1-2-HR ','MPI-ESM1-2-LR ','MRI-ESM2-0 ','UKESM1-0-LL']
 metrics = ['_r2','_seasonality','_corr','_trend']
 
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-#filename = f'{largefilepath}Beck_KG_V1_present_0p5.tif'
-filename = f'{largefilepath}koeppen_simple.nc'
+filename = f'{largefilepath}opscaling/koeppen_simple.nc'
 koeppen = xr.open_dataarray(filename)
-#koeppen = koeppen.rename({'x':'lon','y':'lat'}).squeeze()
 
 mrso = xr.open_dataset(f'{upscalepath}mrso_{modelnames[0]}.nc')['mrso'].load().squeeze()
 mrso = mrso.reset_coords("model", drop=True)
@@ -32,7 +37,6 @@ niter = niter.expand_dims({'model':len(modelnames)}).copy()
 niter = niter.assign_coords({"model": modelnames})
 niter = niter.expand_dims({'metric':len(metrics)}).copy()
 niter = niter.assign_coords({"metric": metrics})
-
 
 koeppen_res = []
 for metric in metrics:
@@ -67,26 +71,44 @@ niter = niter / niter.max(dim=("lat", "lon")) # removed 1 - ...
 meaniter = niter.mean(dim='model')
 meaniter = meaniter.where(~np.isnan(niter).any(dim='model'))
 meaniter.to_netcdf('meaniter.nc')
-import IPython; IPython.embed()
 
-# aggregate to ar6 regions
-#regions = regionmask.defined_regions.ar6.land.mask(meaniter.lon, meaniter.lat)
-#region_means = meaniter.groupby(regions).mean()
-#tmp = xr.full_like(meaniter, np.nan)
-#regions_icedesertobs = [0,3,20,36,40,44,45]
-#regions_selected = region_means.mask.values.tolist()
-#regions_selected = [region for region in regions_selected if region not in regions_icedesertobs]
-#for m, metric in enumerate(metrics):
-#    for region in regions_selected:
-#        tmp[m,:,:] = tmp[m,:,:].where(regions != region, region_means.sel(mask=region, metric=metric))
-#meaniter = tmp
-#landmask = xr.open_dataarray('/net/so4/landclim/bverena/large_files/opscaling/landmask_cmip6-ng.nc')
-#landmask = landmask.squeeze().drop(['time','month'])
-#meaniter = meaniter.where(landmask)
+# regrid to koeppen grid for bar plot
+import xesmf as xe
+regridder = xe.Regridder(niter, koeppen, 'bilinear', reuse_weights=False)
+niter = regridder(niter)
+koeppen_classes = ['Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df']
+koeppen_classes = ['Af','Am','Aw','BS','Cs','Cw','Cf','Ds','Dw','Df'] # BW is removed
+koeppen_ints = np.arange(1,12).astype(int)
+koeppen_ints = [1,2,3,5,6,7,8,9,10,11]
+
+koeppen_res = []
+for metric in metrics:
+    res = []
+    for i in koeppen_ints:
+        res.append(niter.sel(metric=metric).where(koeppen == i).mean().item())
+    koeppen_res.append(res)
+
+# percentiles across models:
+# groupby_bins with bin int: TypeError: cannot perform reduce with flexible type
+#                       arr: ValueError: None of the data falls within bins with edges [0.5, 0.6]
+perc = np.floor(niter*10)*10 # np.floor only rounds to integers
+koeppen_res = []
+koeppen_res = np.zeros((4,10,10))
+for m, metric in enumerate(metrics):
+    for k, i in enumerate(koeppen_ints):
+        tmp = niter.sel(metric=metric).where(koeppen == i).stack(land=('lat','lon')).dropna('land', how='all')
+        tmp = tmp.values.flatten()
+        tmp = np.histogram(tmp, bins=np.arange(0,1.1,0.1))[0]
+        koeppen_res[m,k,:] = tmp / tmp.sum()
+koeppen_res[0,:,:] = koeppen_res[0,:,:] / koeppen_res[0,:,:].sum(axis=0)
+koeppen_res[1,:,:] = koeppen_res[1,:,:] / koeppen_res[1,:,:].sum(axis=0)
+koeppen_res[2,:,:] = koeppen_res[2,:,:] / koeppen_res[2,:,:].sum(axis=0)
+koeppen_res[3,:,:] = koeppen_res[3,:,:] / koeppen_res[3,:,:].sum(axis=0)
 
 # plot
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
+cmap = plt.get_cmap('Reds_r')
 
 fig = plt.figure(figsize=(10, 10))
 ax1 = fig.add_subplot(421, projection=proj)
@@ -98,10 +120,10 @@ ax6 = fig.add_subplot(424)
 ax7 = fig.add_subplot(426)
 ax8 = fig.add_subplot(428)
 
-meaniter[0,:,:].plot.contourf(ax=ax1, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
-meaniter[1,:,:].plot.contourf(ax=ax2, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
-meaniter[2,:,:].plot.contourf(ax=ax3, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
-im = meaniter[3,:,:].plot.contourf(ax=ax4, add_colorbar=False, cmap='Reds_r', vmin=0, vmax=1, transform=transf)
+meaniter[0,:,:].plot.contourf(ax=ax1, add_colorbar=False, cmap=cmap, vmin=0, vmax=1, transform=transf)
+meaniter[1,:,:].plot.contourf(ax=ax2, add_colorbar=False, cmap=cmap, vmin=0, vmax=1, transform=transf)
+meaniter[2,:,:].plot.contourf(ax=ax3, add_colorbar=False, cmap=cmap, vmin=0, vmax=1, transform=transf)
+im = meaniter[3,:,:].plot.contourf(ax=ax4, add_colorbar=False, cmap=cmap, vmin=0, vmax=1, transform=transf)
 
 ax1.coastlines()
 ax2.coastlines()
@@ -113,44 +135,20 @@ ax2.set_title('(b) Mean seasonal cycle')
 ax3.set_title('(c) Monthly anomalies')
 ax4.set_title('(d) Long-term trend')
 
-#cbar_ax = fig.add_axes([0.91, 0.53, 0.02, 0.3]) # left bottom width height
 cbar_ax = fig.add_axes([0.15, 0.07, 0.3, 0.02]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
 cbar.set_label('mean rank percentile')
 
+for i in range(10):
+    ax5.bar(np.arange(len(koeppen_ints)), koeppen_res[0,i,:], bottom=koeppen_res[0,:i,:].sum(axis=0), color=cmap(i/10))
+    ax6.bar(np.arange(len(koeppen_ints)), koeppen_res[1,i,:], bottom=koeppen_res[1,:i,:].sum(axis=0), color=cmap(i/10))  
+    ax7.bar(np.arange(len(koeppen_ints)), koeppen_res[2,i,:], bottom=koeppen_res[2,:i,:].sum(axis=0), color=cmap(i/10))
+    ax8.bar(np.arange(len(koeppen_ints)), koeppen_res[3,i,:], bottom=koeppen_res[3,:i,:].sum(axis=0), color=cmap(i/10))
 
-import xesmf as xe
-regridder = xe.Regridder(niter, koeppen, 'bilinear', reuse_weights=False)
-niter = regridder(niter)
-koeppen_classes = ['Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df']
-koeppen_classes = ['Af','Am','Aw','BS','Cs','Cw','Cf','Ds','Dw','Df'] # BW is removed
-koeppen_ints = np.arange(1,12).astype(int)
-koeppen_ints = [1,2,3,5,6,7,8,9,10,11]
-
-#fig = plt.figure(figsize=(10, 10))
-#ax1 = fig.add_subplot(221)
-#ax2 = fig.add_subplot(222)
-#ax3 = fig.add_subplot(223)
-#ax4 = fig.add_subplot(224)
-
-koeppen_res = []
-for metric in metrics:
-    res = []
-    for i in koeppen_ints:
-        res.append(niter.sel(metric=metric).where(koeppen == i).mean().item())
-        #tmp = niter.sel(metric=metric).where(koeppen == i)
-        #tmp.mean(dim=('lat','lon')).plot()
-    koeppen_res.append(res)
-
-ax5.bar(np.arange(len(koeppen_res[0])), koeppen_res[0], color='darkred')
-ax6.bar(np.arange(len(koeppen_res[1])), koeppen_res[1], color='darkred')
-ax7.bar(np.arange(len(koeppen_res[2])), koeppen_res[2], color='darkred')
-ax8.bar(np.arange(len(koeppen_res[3])), koeppen_res[3], color='darkred')
-
-ax5.set_ylim([0,0.8])
-ax6.set_ylim([0,0.8])
-ax7.set_ylim([0,0.8])
-ax8.set_ylim([0,0.8])
+#ax5.set_ylim([0,0.98])
+#ax6.set_ylim([0,0.98])
+#ax7.set_ylim([0,0.98])
+#ax8.set_ylim([0,0.98])
 
 ax5.set_xticks(np.arange(len(res)))
 ax5.set_xticklabels(koeppen_classes)
@@ -160,12 +158,9 @@ ax7.set_xticks(np.arange(len(res)))
 ax7.set_xticklabels(koeppen_classes)
 ax8.set_xticks(np.arange(len(res)))
 ax8.set_xticklabels(koeppen_classes)
-#ax5.set_title('(d) Absolute values')
-#ax6.set_title('(b) Mean seasonal cycle')
-#ax7.set_title('(a) Anomalies')
-#ax8.set_title('(c) Trend')
 ax5.set_ylabel('mean rank percentile')
 ax6.set_ylabel('mean rank percentile')
 ax7.set_ylabel('mean rank percentile')
 ax8.set_ylabel('mean rank percentile')
+
 plt.savefig('metrics_maps.png')
