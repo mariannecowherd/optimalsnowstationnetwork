@@ -107,7 +107,7 @@ ax4.grid(alpha=a)
 
 legend_colors = [Line2D([0], [0], marker='None', color=col_random, linewidth=2, label='random'),
                  Line2D([0], [0], marker='None', color=col_swaths, linewidth=2, label='geographical distance'),
-                 Line2D([0], [0], marker='None', color=col_real, label='correlation-based')]
+                 Line2D([0], [0], marker='None', color=col_real, label='skill-based')]
 ax2.legend(handles=legend_colors, loc='lower right', borderaxespad=0.)
 
 #plt.show()
