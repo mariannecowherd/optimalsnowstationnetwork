@@ -107,7 +107,7 @@ for modelname in modelnames:
 
     # cut out deserts
     largefilepath = '/net/so4/landclim/bverena/large_files/'
-    koeppen = xr.open_dataset(f'{largefilepath}koeppen_simple.nc').to_array()
+    koeppen = xr.open_dataset(f'{largefilepath}opscaling/koeppen_simple.nc').to_array()
     regridder = xe.Regridder(koeppen, mrso, 'bilinear') # does not lead to fractional classes prob because downsampling not up
     koeppen = regridder(koeppen)
     isdesert = koeppen == 4
