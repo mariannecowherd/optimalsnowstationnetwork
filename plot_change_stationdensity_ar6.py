@@ -11,6 +11,15 @@ meaniter = xr.open_dataarray('meaniter.nc')
 meaniter = meaniter.sel(metric='_corr') < 0.25
 #obsmask = xr.open_mfdataset(f'{largefilepath}opscaling/obsmask_*.nc', combine='nested', compat='override')
 obsmask = xr.open_dataarray(f'{largefilepath}opscaling/obsmask.nc') # DEBUG later all models
+corrmaps = xr.open_mfdataset('corrmap_systematic_A*.nc')
+
+# calc change in pearson when doubling stations
+min_frac = min(corrmaps.mrso.frac_observed)
+double_frac = min_frac*2
+orig = corrmaps.mrso.sel(frac_observed=min_frac, method='nearest')
+double = corrmaps.mrso.sel(frac_observed=double_frac, method='nearest')
+corr_increase = double - orig
+corr_increase = corr_increase.mean(dim='model').squeeze().load()
 
 # ar6 regions
 landmask = regionmask.defined_regions.natural_earth_v5_0_0.land_110.mask(obsmask.lon, obsmask.lat)
@@ -33,63 +42,67 @@ grid = grid / (1000*1000) # to Mio km**2
 # groupby regions
 density_current = obsmask.groupby(regions).sum() / grid.groupby(regions).sum()
 density_future = (obsmask | meaniter).groupby(regions).sum() / grid.groupby(regions).sum()
+corr_increase = corr_increase.groupby(regions).mean()
 
 # create world map
 density_c = xr.full_like(regions, 0)
 for region, d in zip(range(int(regions.max().item())), density_current):
     density_c = density_c.where(regions != region, d) # unit stations per bio square km
-density_c = density_c.where(~np.isnan(landmask))
 
 density_f = xr.full_like(regions, 0)
 for region, d in zip(range(int(regions.max().item())), density_future):
     density_f = density_f.where(regions != region, d) # unit stations per bio square km
-density_f = density_f.where(~np.isnan(landmask))
 
-# plot
-#fs = 25
-#cmap = plt.get_cmap('Greens').copy()
-#bad_color = 'lightgrey'
-#cmap.set_under(bad_color)
-#proj = ccrs.Robinson()
-#transf = ccrs.PlateCarree()
-#fig = plt.figure(figsize=(20,10))
-#ax1 = fig.add_subplot(121, projection=proj)
-#ax2 = fig.add_subplot(122, projection=proj)
-#
-#density_c.plot(ax=ax1, add_colorbar=False, cmap=cmap, transform=transf, 
-#             vmin=1, vmax=20)#, cbar_kwargs=cbar_kwargs)
-#im = density_f.plot(ax=ax2, add_colorbar=False, cmap=cmap, transform=transf, 
-#             vmin=1, vmax=20)#, cbar_kwargs=cbar_kwargs)
-#regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), ax=ax1, add_label=False, proj=transf)
-#regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), ax=ax2, add_label=False, proj=transf)
-#cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
-#cbar = fig.colorbar(im, cax=cbar_ax)
-#cbar.ax.tick_params(labelsize=fs)
-#cbar.set_label('stations per million $km^2$', fontsize=fs)
-#ax1.set_title('current station density per AR6 region', fontsize=fs) 
-#ax2.set_title('future station density per AR6 region', fontsize=fs)
-#ax1.coastlines()
-#ax2.coastlines()
-#plt.savefig('change_stationdensity.png')
+doubling = xr.full_like(regions, 0)
+for region, d in zip(range(int(regions.max().item())), corr_increase):
+    doubling = doubling.where(regions != region, d) # unit stations per bio square km
+
+# calc station density difference
+density = density_f - density_c
+
+# set no change to nan
+density = density.where(density != 0, np.nan)
+doubling = doubling.where(doubling != 0, np.nan)
+
+# set ocean negative number
+doubling = doubling.where(~np.isnan(landmask), -10)
+density = density.where(~np.isnan(landmask), -10)
 
 # plot difference
 fs = 25
 cmap = plt.get_cmap('Greens').copy()
 bad_color = 'lightgrey'
-cmap.set_under(bad_color)
+cmap.set_under('aliceblue')
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
-fig = plt.figure(figsize=(20,10))
-ax = fig.add_subplot(111, projection=proj)
+fig = plt.figure(figsize=(25,7))
+ax1 = fig.add_subplot(121, projection=proj)
+ax2 = fig.add_subplot(122, projection=proj)
+fig.suptitle('Impact of doubling station number per AR6 region', fontsize=fs)
 
-im = (density_f - density_c).plot(ax=ax, add_colorbar=False, cmap=cmap, 
+im = density.plot(ax=ax1, add_colorbar=False, cmap=cmap, 
                                   transform=transf, vmin=0)
 regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), 
-                                         ax=ax, add_label=False, proj=transf)
-cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
+                                         ax=ax1, add_label=False, proj=transf)
+cbar_ax = fig.add_axes([0.48, 0.15, 0.02, 0.7]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax)
 cbar.ax.tick_params(labelsize=fs)
 cbar.set_label('stations per million $km^2$', fontsize=fs)
-ax.set_title('change in station density per AR6 region \nafter doubling station number', fontsize=fs) 
-ax.coastlines()
+ax1.set_title('change in station density', fontsize=fs) 
+
+im = doubling.plot(ax=ax2, add_colorbar=False, cmap=cmap, 
+                                  transform=transf, vmin=-0.03, vmax=0.3)
+regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), 
+                                         ax=ax2, add_label=False, proj=transf)
+cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
+cbar = fig.colorbar(im, cax=cbar_ax)
+cbar.ax.tick_params(labelsize=fs)
+cbar.set_label('pearson correlation', fontsize=fs)
+ax2.set_title('change in pearson correlation', fontsize=fs) 
+
+ax1.set_facecolor(bad_color)
+ax2.set_facecolor(bad_color)
+
+ax1.coastlines()
+ax2.coastlines()
 plt.savefig('change_stationdensity.png')
