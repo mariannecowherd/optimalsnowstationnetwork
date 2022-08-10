@@ -1,79 +1,31 @@
 import pickle
 import xarray as xr
+import xesmf as xe
 import cartopy.crs as ccrs
 import numpy as np
 import matplotlib.pyplot as plt
 import regionmask
 
-colors = np.array([[81,73,171],[124,156,172],[236,197,140],[85,31,50],[189,65,70],[243,220,124]])
-colors = colors/255.
-col_random = colors[4,:]
-col_swaths = colors[2,:]
-col_real = colors[0,:]
-
 upscalepath = '/net/so4/landclim/bverena/large_files/opscaling/'
-modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR',
-              'ACCESS-ESM1-5','BCC-CSM2-MR','CESM2','CMCC-ESM2',
-              'CNRM-ESM2-1','CanESM5','E3SM-1-1','FGOALS-g3',
-              'GFDL-ESM4','GISS-E2-1-H','INM-CM4-8','UKESM1-0-LL'] 
-#modelnames = ['ACCESS-CM2 ','ACCESS-ESM1-5 ','BCC-CSM2-MR ','CESM2-WACCM ',
-#              'CESM2 ','CMCC-CM2-SR5 ','CMCC-ESM2 ','CNRM-CM6-1-HR ',
-#              'CNRM-CM6-1 ','CNRM-ESM2-1 ','CanESM5-CanOE ','CanESM5 E3SM-1-1 ',
-#              'EC-Earth3-AerChem ','EC-Earth3-Veg-LR ','EC-EARTH3-Veg ',
-#              'FGOALS-f3-L ','FGOALS-g3 ','GFDL-ESM4 ','GISS-E2-1-G ',
-#              'GISS-E2-1-H ','GISS-E2-2-G ','HadGEM3-GC31-MM ','INM-CM4-8 ',
-#              'INM-CM5-0 ','IPSL-CM6A-LR ','MIROC-ES2L ','MIROC6 ',
-#              'MPI-ESM1-2-HR ','MPI-ESM1-2-LR ','MRI-ESM2-0 ','UKESM1-0-LL']
 metrics = ['_r2','_seasonality','_corr','_trend']
 
+# read files
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 filename = f'{largefilepath}opscaling/koeppen_simple.nc'
 koeppen = xr.open_dataarray(filename)
-
-mrso = xr.open_dataset(f'{upscalepath}mrso_{modelnames[0]}.nc')['mrso'].load().squeeze()
-mrso = mrso.reset_coords("model", drop=True)
-niter = xr.full_like(mrso.mean(dim='time'), np.nan)
-niter = niter.expand_dims({'model':len(modelnames)}).copy()
-niter = niter.assign_coords({"model": modelnames})
-niter = niter.expand_dims({'metric':len(metrics)}).copy()
-niter = niter.assign_coords({"metric": metrics})
-
-koeppen_res = []
-for metric in metrics:
-
-    for modelname in modelnames:
-        try:
-            with open(f"corr_systematic_{modelname}{metric}_new.pkl", "rb") as f:
-                corr = pickle.load(f)
-
-            with open(f"nobs_systematic_{modelname}{metric}_new.pkl", "rb") as f:
-                nobs = pickle.load(f)
-
-            with open(f"lats_systematic_{modelname}{metric}_new.pkl", "rb") as f:
-                latlist = pickle.load(f)
-
-            with open(f"lons_systematic_{modelname}{metric}_new.pkl", "rb") as f:
-                lonlist = pickle.load(f)
-
-        except FileNotFoundError:
-            continue
-        else:
-            print(metric, modelname)
-
-        for i, (lats, lons) in enumerate(zip(latlist, lonlist)):
-            for lat, lon in zip(lats, lons):
-                niter.loc[metric,modelname,lat,lon] = i
+niter = xr.open_mfdataset(f'niter_*.nc')
 
 # calc rank percentages from iter
 niter = niter / niter.max(dim=("lat", "lon")) # removed 1 - ...
 
-# delete points that are desert in any model
+# calc model mean
 meaniter = niter.mean(dim='model')
-meaniter = meaniter.where(~np.isnan(niter).any(dim='model'))
-meaniter.to_netcdf('meaniter.nc')
+
+# delete points that are desert in any model # not necessary anymore bec harmonised desert mask
+#meaniter = meaniter.where(~np.isnan(niter).any(dim='model'))
+#niter = niter.where(~np.isnan(niter).any(dim='model'))
 
 # regrid to koeppen grid for bar plot
-import xesmf as xe
 regridder = xe.Regridder(niter, koeppen, 'bilinear', reuse_weights=False)
 niter = regridder(niter)
 koeppen_classes = ['Af','Am','Aw','BW','BS','Cs','Cw','Cf','Ds','Dw','Df']
@@ -81,17 +33,10 @@ koeppen_classes = ['Af','Am','Aw','BS','Cs','Cw','Cf','Ds','Dw','Df'] # BW is re
 koeppen_ints = np.arange(1,12).astype(int)
 koeppen_ints = [1,2,3,5,6,7,8,9,10,11]
 
-koeppen_res = []
-for metric in metrics:
-    res = []
-    for i in koeppen_ints:
-        res.append(niter.sel(metric=metric).where(koeppen == i).mean().item())
-    koeppen_res.append(res)
-
 # percentiles across models:
 # groupby_bins with bin int: TypeError: cannot perform reduce with flexible type
 #                       arr: ValueError: None of the data falls within bins with edges [0.5, 0.6]
-perc = np.floor(niter*10)*10 # np.floor only rounds to integers
+#perc = np.floor(niter*10)*10 # np.floor only rounds to integers
 koeppen_res = []
 koeppen_res = np.zeros((4,10,10))
 for m, metric in enumerate(metrics):
@@ -109,6 +54,12 @@ koeppen_res[3,:,:] = koeppen_res[3,:,:] / koeppen_res[3,:,:].sum(axis=0)
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
 cmap = plt.get_cmap('Reds_r')
+
+colors = np.array([[81,73,171],[124,156,172],[236,197,140],[85,31,50],[189,65,70],[243,220,124]])
+colors = colors/255.
+col_random = colors[4,:]
+col_swaths = colors[2,:]
+col_real = colors[0,:]
 
 fig = plt.figure(figsize=(10, 10))
 ax1 = fig.add_subplot(421, projection=proj)
