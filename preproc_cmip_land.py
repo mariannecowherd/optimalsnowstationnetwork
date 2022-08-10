@@ -123,6 +123,9 @@ for modelname in modelnames:
     landmask = ~np.isnan(landmask)
     landmask = landmask.where(~isdesert, False)
 
+    # mask out land ice (as suggested by MH)
+    # land ice mask sftgif not avail in cmip6-ng.
+
     # create lagged features
     tas_1month = tas.copy(deep=True).shift(time=1, fill_value=0).rename('tas_1m')
     tas_2month = tas.copy(deep=True).shift(time=2, fill_value=0).rename('tas_2m')
