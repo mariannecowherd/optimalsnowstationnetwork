@@ -11,13 +11,13 @@ col_swaths = colors[2,:]
 col_real = colors[0,:]
 
 #modelnames = ['IPSL-CM6A-LR','HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR']
-modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR',
-              'ACCESS-ESM1-5','BCC-CSM2-MR','CESM2','CMCC-ESM2',
-              'CNRM-ESM2-1','CanESM5','E3SM-1-1','FGOALS-g3',
-              'GFDL-ESM4','GISS-E2-1-H','INM-CM4-8','UKESM1-0-LL'] 
-metrics = ['r2','seasonality','corr','trend']
-strategies = ['random','interp','systematic']
-col = [col_random, col_swaths, col_real]
+#modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR',
+#              'ACCESS-ESM1-5','BCC-CSM2-MR','CESM2','CMCC-ESM2',
+#              'CNRM-ESM2-1','CanESM5','E3SM-1-1','FGOALS-g3',
+#              'GFDL-ESM4','GISS-E2-1-H','INM-CM4-8','UKESM1-0-LL'] 
+#metrics = ['r2','seasonality','corr','trend']
+#strategies = ['random','interp','systematic']
+#col = [col_random, col_swaths, col_real]
 testcase = 'new'
 
 fig = plt.figure(figsize=(10, 10))
@@ -30,54 +30,66 @@ a = 0.2
 #plt.close() # DEBUG
 
 
-frac_harmonised = np.arange(0,1.04,0.01)
-meancorr = xr.DataArray(np.full((4,3,len(modelnames),len(frac_harmonised)), np.nan), 
-            coords={'metric':metrics, 'strategy': strategies, 
-                    'model':modelnames,'frac': frac_harmonised})
+#frac_harmonised = np.arange(0,1.04,0.01)
+#meancorr = xr.DataArray(np.full((4,3,len(modelnames),len(frac_harmonised)), np.nan), 
+#            coords={'metric':metrics, 'strategy': strategies, 
+#                    'model':modelnames,'frac': frac_harmonised})
 
-for metric, ax in zip(metrics, (ax1,ax2,ax3,ax4)):
-    corr_list = []
-    for modelname in modelnames:
-        for s, strategy in enumerate(strategies):
+#for metric, ax in zip(metrics, (ax1,ax2,ax3,ax4)):
+#    corr_list = []
+#    for modelname in modelnames:
+#        for s, strategy in enumerate(strategies):
+#
+#            try:
+#                with open(f"corr_{strategy}_{modelname}_{metric}_{testcase}.pkl", "rb") as f:
+#                    corr = pickle.load(f)
+#
+#                with open(f"nobs_{strategy}_{modelname}_{metric}_{testcase}.pkl", "rb") as f:
+#                    nobs = pickle.load(f)
+#            except FileNotFoundError:
+#                continue
+#            else:
+#                print(metric, modelname, strategy)
+#
+#            # convert number of stations to percentages
+#            total_no_of_stations = nobs[-1]
+#            nobs = np.array(nobs)
+#            frac = nobs / total_no_of_stations
+#
+#            # plot
+#            ax.plot(frac, corr, c=col[s], alpha=a, linewidth=0.5)
+#            #plt.plot(frac, corr, c=col[s], alpha=a, linewidth=0.5) # DEBUG
+#
+#            # calculate mean: since different number of steps,
+#            # first need to interpolate
+#            corr = xr.DataArray(corr, coords={'frac': frac}).interp(frac=frac_harmonised).values
+#            meancorr.loc[metric, strategy, modelname,:] = corr
+corrmap = xr.open_mfdataset(f'corrmap_systematic_A*_corr_{testcase}.nc') # TODO all models
+corrmap = corrmap.mean(dim=('lat','lon')).mrso
 
-            try:
-                with open(f"corr_{strategy}_{modelname}_{metric}_{testcase}.pkl", "rb") as f:
-                    corr = pickle.load(f)
-
-                with open(f"nobs_{strategy}_{modelname}_{metric}_{testcase}.pkl", "rb") as f:
-                    nobs = pickle.load(f)
-            except FileNotFoundError:
-                continue
-            else:
-                print(metric, modelname, strategy)
-
-            # convert number of stations to percentages
-            total_no_of_stations = nobs[-1]
-            nobs = np.array(nobs)
-            frac = nobs / total_no_of_stations
-
-            # plot
-            ax.plot(frac, corr, c=col[s], alpha=a, linewidth=0.5)
-            #plt.plot(frac, corr, c=col[s], alpha=a, linewidth=0.5) # DEBUG
-
-            # calculate mean: since different number of steps,
-            # first need to interpolate
-            corr = xr.DataArray(corr, coords={'frac': frac}).interp(frac=frac_harmonised).values
-            meancorr.loc[metric, strategy, modelname,:] = corr
+frac = corrmap.frac_observed
+for metric, ax in zip(corrmap.metric, (ax1,ax2,ax3,ax4)):
+    for modelname in corrmap.model:
+        for s, strategy in enumerate(corrmap.strategy):
+            ax.plot(frac, corrmap.sel(metric=metric, model=modelname, strategy=strategy),
+                    c=col[s], alpha=a, linewidth=0.5)
+meancorr = corrmap.mean(dim='model')
+import IPython; IPython.embed()
+meancorr = meancorr.transpose('metric','strategy','frac_observed')
 
 meancorr = meancorr.mean(dim='model')
-ax1.plot(frac_harmonised, meancorr[0,0,:].values, c=col[0])
-ax1.plot(frac_harmonised, meancorr[0,1,:].values, c=col[1])
-ax1.plot(frac_harmonised, meancorr[0,2,:].values, c=col[2])
-ax2.plot(frac_harmonised, meancorr[1,0,:].values, c=col[0])
-ax2.plot(frac_harmonised, meancorr[1,1,:].values, c=col[1])
-ax2.plot(frac_harmonised, meancorr[1,2,:].values, c=col[2])
-ax3.plot(frac_harmonised, meancorr[2,0,:].values, c=col[0])
-ax3.plot(frac_harmonised, meancorr[2,1,:].values, c=col[1])
-ax3.plot(frac_harmonised, meancorr[2,2,:].values, c=col[2])
-ax4.plot(frac_harmonised, meancorr[3,0,:].values, c=col[0])
-ax4.plot(frac_harmonised, meancorr[3,1,:].values, c=col[1])
-ax4.plot(frac_harmonised, meancorr[3,2,:].values, c=col[2])
+ax1.plot(frac, meancorr[0,0,:].values, c=col[0])
+ax1.plot(frac, meancorr[0,1,:].values, c=col[1])
+ax1.plot(frac, meancorr[0,2,:].values, c=col[2])
+ax2.plot(frac, meancorr[1,0,:].values, c=col[0])
+ax2.plot(frac, meancorr[1,1,:].values, c=col[1])
+ax2.plot(frac, meancorr[1,2,:].values, c=col[2])
+ax3.plot(frac, meancorr[2,0,:].values, c=col[0])
+ax3.plot(frac, meancorr[2,1,:].values, c=col[1])
+ax3.plot(frac, meancorr[2,2,:].values, c=col[2])
+ax4.plot(frac, meancorr[3,0,:].values, c=col[0])
+ax4.plot(frac, meancorr[3,1,:].values, c=col[1])
+ax4.plot(frac, meancorr[3,2,:].values, c=col[2])
 
 ax1.vlines(frac[0], ymin=0.1, ymax=1.1, colors='grey') # TODO correct?
 ax2.vlines(frac[0], ymin=0.1, ymax=1.1, colors='grey')
@@ -91,15 +103,9 @@ ax1.set_ylabel('pearson correlation')
 ax2.set_ylabel('pearson correlation')
 ax3.set_ylabel('pearson correlation')
 ax4.set_ylabel('MAE')
-#ax1.set_xlabel('percentage observed points')
-#ax2.set_xlabel('percentage observed points')
 ax3.set_xlabel('percentage observed points')
 ax4.set_xlabel('percentage observed points')
-#ax1.set_ylim([0.4,1])
-#ax2.set_ylim([0.4,1])
-#ax3.set_ylim([0,5e-37])
 ax1.text(0.16, 0.98, 'current ISMN')
-#ax1.set_ylim([0,1.1])
 ax1.grid(alpha=a)
 ax2.grid(alpha=a)
 ax3.grid(alpha=a)
@@ -110,5 +116,5 @@ legend_colors = [Line2D([0], [0], marker='None', color=col_random, linewidth=2, 
                  Line2D([0], [0], marker='None', color=col_real, label='skill-based')]
 ax2.legend(handles=legend_colors, loc='lower right', borderaxespad=0.)
 
-#plt.show()
-plt.savefig('compare_metrics.png')
+plt.show()
+#plt.savefig('compare_metrics.png')
