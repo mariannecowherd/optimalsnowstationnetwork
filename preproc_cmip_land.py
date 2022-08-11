@@ -37,34 +37,16 @@ def rename_vars(data):
         data['time'] = data.indexes['time'].to_datetimeindex()
     return data
 
-#def open_cmip_suite(varname, modelname, experimentname, ensemblename):
-#    filenames = glob.glob(f'{cmip6_path}{varname}_mon_{modelname}_{experimentname}_{ensemblename}_*.nc')
-#    print(f'{cmip6_path}{varname}_mon_{modelname}_{experimentname}_{ensemblename}_*.nc')
-#    filenames = filenames[0]
-#    print(filenames)
-#    data = xr.open_mfdataset(filenames, 
-#                             combine='nested', # timestamp problem
-#                             concat_dim=None,  # timestamp problem
-#                             preprocess=rename_vars)  # rename vars to model name
-#    data = data.to_array(dim='model').rename(varname)
-#    data.coords['lon'] = (data.coords['lon'] + 180) % 360 - 180
-#    data = data.sortby('lon')
-#    #data = data.mean(dim='variable').load() # here for now
-#    #data = data.load()
-#
-#    return data
-
 def open_cmip_suite(modelname, varname):
     cmip6_path = f'/net/atmos/data/cmip6-ng/{varname}/mon/g025/'
-    data = xr.open_mfdataset(cmip6_path + f'{varname}_mon_{modelname}_ssp370_r1i1*_g025.nc', 
+    filename = glob.glob(cmip6_path + f'{varname}_mon_{modelname}_ssp370_r1i1*_g025.nc')[0] # sometimes 2 enmseble members are chose. select first one
+    data = xr.open_mfdataset(filename, 
                              combine='nested', # timestamp problem
                              concat_dim=None,  # timestamp problem
                              preprocess=rename_vars)  # rename vars to model name
     data = data.to_array(dim='model').rename(varname)
     data.coords['lon'] = (data.coords['lon'] + 180) % 360 - 180
     data = data.sortby('lon')
-    #data = data.mean(dim='variable').load() # here for now
-    #data = data.load()
 
     return data
 
@@ -72,22 +54,12 @@ cmip6_path = f'/net/atmos/data/cmip6-ng/mrso/mon/g025/'
 filepaths = glob.glob(f'{cmip6_path}mrso_mon_*_ssp370_*r1i1*_g025.nc')
 modelnames = [filepath.split('_')[2] for filepath in filepaths]
 modelnames.remove('MCM-UA-1-0') # does not have pr
-#modelnames = ['HadGEM3-GC31-MM','MIROC6','MPI-ESM1-2-HR','IPSL-CM6A-LR',
-#              'ACCESS-ESM1-5','BCC-CSM2-MR','CESM2','CMCC-ESM2',
-#              'CNRM-ESM2-1','CanESM5','E3SM-1-1','FGOALS-g3',
-#              'GFDL-ESM4','GISS-E2-1-H','INM-CM4-8',#'MCM-UA-1-0', # MCM does not have pr
-#              'UKESM1-0-LL'] #NorESM does only have esm-ssp585
-#ensemblenames = ['r1i1p1f3','r1i1p1f1','r1i1p1f1','r1i1p1f1',
-#                 'r10i1p1f1','r1i1p1f1','r1i1p1f1','r1i1p1f1',
-#                 'r1i1p1f2','r1i1p1f1','r1i1p1f1','r1i1p1f1',
-#                 'r1i1p1f1','r1i1p3f1','r1i1p1f1','r1i1p1f2']
-#ensemblename = '*i1*' # same initialisation, rest doesnt matter
-#for modelname, ensemblename in zip(modelnames,ensemblenames):
+modelnames = np.unique(modelnames) # double entries
 for modelname in modelnames:
+    #modelname = 'MPI-ESM1-2-LR' # DEBUG
     print(modelname)
-    #modelname = '*'
-    #experimentname = 'ssp585'
-    #ensemblename = 'r1i1p1f1'
+
+    # load data
     mrso = open_cmip_suite(modelname, 'mrso')
     tas = open_cmip_suite(modelname, 'tas')
     pr = open_cmip_suite(modelname, 'pr')
@@ -107,13 +79,11 @@ for modelname in modelnames:
 
     # cut out deserts
     largefilepath = '/net/so4/landclim/bverena/large_files/'
-    koeppen = xr.open_dataset(f'{largefilepath}opscaling/koeppen_simple.nc').to_array()
+    koeppen = xr.open_dataset(f'{largefilepath}opscaling/koeppen_simple.nc').to_array().squeeze()
+    koeppen = koeppen.drop('variable')
     regridder = xe.Regridder(koeppen, mrso, 'bilinear') # does not lead to fractional classes prob because downsampling not up
     koeppen = regridder(koeppen)
     isdesert = koeppen == 4
-    #nyears = len(np.unique(pr["time.year"]))
-    #isdesert = pr.sum(dim="time") / float(nyears) < 0.00003
-    #isdesert.to_netcdf(savepath + f"isdesert.nc")
     mrso = mrso.where(~isdesert)   
     tas = tas.where(~isdesert)   
     pr = pr.where(~isdesert)   
@@ -160,6 +130,7 @@ for modelname in modelnames:
                      pr_7month, pr_8month, pr_9month, pr_10month, pr_11month, pr_12month])
 
     # save
+    import IPython; IPython.embed()
     mrso = mrso.to_dataset(name="mrso")
     mrso.to_netcdf(f'{upscalepath}mrso_{modelname}.nc')
     pred.to_netcdf(f'{upscalepath}pred_{modelname}.nc')
