@@ -79,6 +79,14 @@ i = 0
 testcase = '_new'
 corrmaps = []
 
+# some models (MPI) need individual land mask bec don't have e.g. Cuba
+landpts_before = landmask.sum()
+model_no_land = np.isnan(mrso)[0,:,:] & landmask
+landmask = landmask.where(~model_no_land, False)
+landpts_after = landmask.sum()
+if landpts_before != landpts_after:
+    logging.info(f'model {modelname} is missing {(landpts_after - landpts_before).item()} landpoints. Those are defined as ocean now')
+
 logging.info('start loop ...')
 while True:
 
@@ -113,6 +121,13 @@ while True:
     if i == 0:
         latlist = mrso_obs.lat.values.tolist()
         lonlist = mrso_obs.lon.values.tolist()
+
+    # drop missing landpoints if there are any (e.g. MPI)
+    # dropping nan landpoints does not work because unstack fails bec missing points
+    #if np.isnan(mrso_obs).sum() != 0:
+    #    pred_obs = pred_obs.where(~np.isnan(mrso_obs)).dropna(dim='landpoints', how='all')
+    #    mrso_obs = mrso_obs.dropna(dim='landpoints', how='all')
+    #    pred_obs = pred_obs.dropna(dim='landpoints', how='all')
 
     # stack landpoints and time
     #logging.info('stack')
