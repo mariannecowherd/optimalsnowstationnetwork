@@ -154,8 +154,8 @@ while True:
     #logging.info('unstack ...')
     y_predict = y_predict.unstack('datapoints').load()
     y_test = y_test.unstack('datapoints').load()
-    y_test.to_netcdf('y_test.nc') # DEBUG
-    y_predict.to_netcdf('y_predict.nc') #DEBUG
+    #y_test.to_netcdf('y_test.nc') # DEBUG
+    #y_predict.to_netcdf('y_predict.nc') #DEBUG
     y_train = y_train.unstack('datapoints').load()
     y_train_predict = y_train_predict.unstack('datapoints').load()
     y_latlon = y_test.copy(deep=True)
@@ -226,9 +226,10 @@ while True:
     latlist = latlist + lats.tolist()
     lonlist = lonlist + lons.tolist()
 
-    # calc mean corr for log 
+    # calc mean corr for log and turn sign corrmap
     if metric == 'trend':
         mean_corr = -corrmap.mean().item()
+        corrmap = -corrmap
     else:
         mean_corr = corrmap.mean().item()
     logging.info(f'iteration {i} obs landpoints {len(latlist)} mean metric {mean_corr}')
