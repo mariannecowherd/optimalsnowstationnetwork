@@ -17,13 +17,28 @@ col_real = colors[0,:]
 
 # load files
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-orig = xr.open_mfdataset(f'orig_*_corr.nc', combine='nested', concat_dim='model').mrso # DEBUG TODO ALL FILES
-double = xr.open_mfdataset(f'double_*_corr.nc', combine='nested', concat_dim='model').mrso
-meaniter = xr.open_dataarray('meaniter.nc')
-meaniter = meaniter.sel(metric='_corr') < 0.25
-obsmask = xr.open_dataarray(f'{largefilepath}opscaling/obsmask.nc') # DEBUG later all models
+testcase = 'new'
+corrmaps = xr.open_mfdataset(f'corrmap_systematic_*_corr_{testcase}.nc').squeeze().mrso
+niter = xr.open_mfdataset(f'niter_systematic_*_corr_{testcase}.nc').squeeze().mrso
+landmask = xr.open_dataarray(f'{largefilepath}opscaling/landmask.nc').squeeze()
+
+# extract current and double corr
+min_frac = min(corrmaps.frac_observed)
+double_frac = min_frac*2
+orig = corrmaps.sel(frac_observed=min_frac, method='nearest')
+double = corrmaps.sel(frac_observed=double_frac, method='nearest')
 orig = orig.mean(dim='model')
 double = double.mean(dim='model')
+
+# double mask from niter
+niter = niter / niter.max(dim=("lat", "lon")) # removed 1 - ...
+meaniter = niter.mean(dim='model')
+
+# calc obsmask
+obsmask = (np.isnan(meaniter) & landmask)
+
+# mask for double frac
+meaniter = meaniter < double_frac
 
 # regions
 landmask = regionmask.defined_regions.natural_earth_v5_0_0.land_110.mask(orig.lon, orig.lat)
@@ -73,15 +88,12 @@ meaniter_highres = regridder(meaniter)
 # station density current and future
 den_ar6_current = obsmask.groupby(regions).sum() / grid.groupby(regions).sum()
 den_ar6_future = (obsmask | meaniter).groupby(regions).sum() / grid.groupby(regions).sum()
-den_ar6 = (den_ar6_future / den_ar6_current).squeeze()
 
 den_countries_current = obsmask.groupby(countries).sum() / grid.groupby(countries).sum()
 den_countries_future = (obsmask | meaniter).groupby(countries).sum() / grid.groupby(countries).sum()
-den_countries = (den_countries_future / den_countries_current).squeeze()
 
 den_koeppen_current = obsmask_highres.groupby(koeppen).sum() / grid_k.groupby(koeppen).sum()
 den_koeppen_future = (obsmask_highres | meaniter_highres).groupby(koeppen).sum() / grid_k.groupby(koeppen).sum()
-den_koeppen = (den_koeppen_future / den_koeppen_current).squeeze()
 
 # get region names
 countries_names = regionmask.defined_regions.natural_earth_v5_0_0.countries_110.names
@@ -131,10 +143,10 @@ region_names = np.array(region_names)[idxs]
 # create legend
 a = 0.5
 legend_elements = [Line2D([0], [0], marker='o', color='w', 
-                   label='current station density', markerfacecolor=col_real,
+                   label='current station number', markerfacecolor=col_real,
                    markeredgecolor='black', alpha=a, markersize=10),
                    Line2D([0], [0], marker='o', color='w', 
-                   label='double station density', markerfacecolor=col_real,
+                   label='double station number', markerfacecolor=col_real,
                    markeredgecolor=col_real, alpha=1, markersize=10)]
 
 
