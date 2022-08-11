@@ -7,13 +7,14 @@ import matplotlib.pyplot as plt
 import regionmask
 
 upscalepath = '/net/so4/landclim/bverena/large_files/opscaling/'
-metrics = ['_r2','_seasonality','_corr','_trend']
+metrics = ['r2','seasonality','corr','trend']
 
 # read files
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 filename = f'{largefilepath}opscaling/koeppen_simple.nc'
 koeppen = xr.open_dataarray(filename)
-niter = xr.open_mfdataset(f'niter_*.nc')
+testcase = 'new'
+niter = xr.open_mfdataset(f'niter_systematic*{testcase}.nc').squeeze().mrso
 
 # calc rank percentages from iter
 niter = niter / niter.max(dim=("lat", "lon")) # removed 1 - ...
@@ -101,13 +102,13 @@ for i in range(10):
 #ax7.set_ylim([0,0.98])
 #ax8.set_ylim([0,0.98])
 
-ax5.set_xticks(np.arange(len(res)))
+ax5.set_xticks(np.arange(len(koeppen_ints)))
 ax5.set_xticklabels(koeppen_classes)
-ax6.set_xticks(np.arange(len(res)))
+ax6.set_xticks(np.arange(len(koeppen_ints)))
 ax6.set_xticklabels(koeppen_classes)
-ax7.set_xticks(np.arange(len(res)))
+ax7.set_xticks(np.arange(len(koeppen_ints)))
 ax7.set_xticklabels(koeppen_classes)
-ax8.set_xticks(np.arange(len(res)))
+ax8.set_xticks(np.arange(len(koeppen_ints)))
 ax8.set_xticklabels(koeppen_classes)
 ax5.set_ylabel('mean rank percentile')
 ax6.set_ylabel('mean rank percentile')
