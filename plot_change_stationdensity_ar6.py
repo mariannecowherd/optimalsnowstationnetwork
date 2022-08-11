@@ -7,11 +7,10 @@ import matplotlib.pyplot as plt
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 
 # load data
-meaniter = xr.open_dataarray('meaniter.nc')
-meaniter = meaniter.sel(metric='_corr') < 0.25
-#obsmask = xr.open_mfdataset(f'{largefilepath}opscaling/obsmask_*.nc', combine='nested', compat='override')
-obsmask = xr.open_dataarray(f'{largefilepath}opscaling/obsmask.nc') # DEBUG later all models
-corrmaps = xr.open_mfdataset('corrmap_systematic_A*.nc')
+testcase = 'new'
+niter = xr.open_mfdataset(f'niter_systematic_*_corr_{testcase}.nc')
+corrmaps = xr.open_mfdataset(f'corrmap_systematic_*_corr_{testcase}.nc')
+landmask = xr.open_dataarray(f'{largefilepath}opscaling/landmask.nc')
 
 # calc change in pearson when doubling stations
 min_frac = min(corrmaps.mrso.frac_observed)
@@ -20,6 +19,18 @@ orig = corrmaps.mrso.sel(frac_observed=min_frac, method='nearest')
 double = corrmaps.mrso.sel(frac_observed=double_frac, method='nearest')
 corr_increase = double - orig
 corr_increase = corr_increase.mean(dim='model').squeeze().load()
+
+# calc rank percentages from iter
+niter = niter / niter.max(dim=("lat", "lon")) # removed 1 - ...
+
+# calc model mean
+meaniter = niter.mean(dim='model').squeeze().mrso
+
+# calc obsmask
+obsmask = (np.isnan(meaniter) & landmask)
+
+# select threshold
+meaniter = meaniter < double_frac
 
 # ar6 regions
 landmask = regionmask.defined_regions.natural_earth_v5_0_0.land_110.mask(obsmask.lon, obsmask.lat)
@@ -38,11 +49,16 @@ area = np.repeat(area.values, shape[1]).reshape(shape)
 grid['area'] = (['lat','lon'], area)
 grid = grid.to_array() / (1000*1000) # to km**2
 grid = grid / (1000*1000) # to Mio km**2
+grid = grid.squeeze()
 
 # groupby regions
-density_current = obsmask.groupby(regions).sum() / grid.groupby(regions).sum()
-density_future = (obsmask | meaniter).groupby(regions).sum() / grid.groupby(regions).sum()
+density_current = obsmask.squeeze().groupby(regions).sum() / grid.groupby(regions).sum()
+density_future = (obsmask.squeeze() | meaniter).groupby(regions).sum() / grid.groupby(regions).sum()
 corr_increase = corr_increase.groupby(regions).mean()
+
+# round to get rid of 1 slightly below zero number (non significant)
+corr_increase = np.round(corr_increase, 3)
+density_future[0] = 0 # fringe station that isn't really on greenland
 
 # create world map
 density_c = xr.full_like(regions, 0)
@@ -78,12 +94,12 @@ transf = ccrs.PlateCarree()
 fig = plt.figure(figsize=(25,7))
 ax1 = fig.add_subplot(121, projection=proj)
 ax2 = fig.add_subplot(122, projection=proj)
-fig.suptitle('Impact of doubling station number per AR6 region', fontsize=fs)
+fig.suptitle('Impact of doubling station number', fontsize=fs)
 
 im = density.plot(ax=ax1, add_colorbar=False, cmap=cmap, 
-                                  transform=transf, vmin=0)
+                                  transform=transf, vmin=0, vmax=12)
 regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), 
-                                         ax=ax1, add_label=False, proj=transf)
+                                         ax=ax1, add_label=False, projection=transf)
 cbar_ax = fig.add_axes([0.48, 0.15, 0.02, 0.7]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax)
 cbar.ax.tick_params(labelsize=fs)
@@ -91,9 +107,9 @@ cbar.set_label('stations per million $km^2$', fontsize=fs)
 ax1.set_title('change in station density', fontsize=fs) 
 
 im = doubling.plot(ax=ax2, add_colorbar=False, cmap=cmap, 
-                                  transform=transf, vmin=-0.03, vmax=0.3)
+                                  transform=transf, vmin=0, vmax=0.3)
 regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), 
-                                         ax=ax2, add_label=False, proj=transf)
+                                         ax=ax2, add_label=False, projection=transf)
 cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax)
 cbar.ax.tick_params(labelsize=fs)
