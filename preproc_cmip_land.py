@@ -130,6 +130,7 @@ for modelname in modelnames:
                      pr_7month, pr_8month, pr_9month, pr_10month, pr_11month, pr_12month])
 
     # save
+    mrso = mrso.drop_vars('band')
     mrso = mrso.to_dataset(name="mrso")
     mrso.to_netcdf(f'{upscalepath}mrso_{modelname}.nc')
     pred.to_netcdf(f'{upscalepath}pred_{modelname}.nc')
