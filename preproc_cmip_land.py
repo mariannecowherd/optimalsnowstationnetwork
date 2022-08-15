@@ -130,8 +130,9 @@ for modelname in modelnames:
                      pr_7month, pr_8month, pr_9month, pr_10month, pr_11month, pr_12month])
 
     # save
-    import IPython; IPython.embed()
     mrso = mrso.to_dataset(name="mrso")
     mrso.to_netcdf(f'{upscalepath}mrso_{modelname}.nc')
     pred.to_netcdf(f'{upscalepath}pred_{modelname}.nc')
-    landmask.to_netcdf(f'{upscalepath}landmask.nc')
+
+landmask = landmask.to_dataset(name='landmask').drop_vars('band')
+landmask.to_netcdf(f'{upscalepath}landmask.nc')
