@@ -13,10 +13,42 @@ col_real = colors[0,:]
 a = 0.2
 col = [col_random, col_swaths, col_real]
 
+def drop_time(data): # not necessary after rerun
+    filename = data.encoding['source']
+    try:
+        data = data.drop_vars('time')
+        print(filename, 'time succesfully removed')
+    except ValueError as e:
+        print(filename, e)
+    return data
+
+# DEBUG
+#testcase = 'new'
+#import glob
+#filenames = glob.glob(f'corrmap_*_{testcase}.nc')
+#for filename in filenames:
+#    tmp = xr.open_dataarray(filename)
+#    try:
+#        if tmp.frac_observed.values[0] != 0.12403100775193798:
+#            print(tmp.frac_observed.values[0], filename)
+#            filenames.remove(filename)
+#    except AttributeError as e:
+#        print(filename, e)
+
 # load data
 testcase = 'new'
-corrmap = xr.open_mfdataset(f'corrmap_*_{testcase}.nc') # TODO all models
+corrmap = xr.open_mfdataset(f'corrmap_*_{testcase}.nc',
+                            compat='override',
+                            coords='minimal',
+                            preprocess=drop_time).load() # not necessary after rerun
+#corrmap = xr.open_mfdataset(filenames, preprocess=drop_time, coords='minimal', compat='override')
 corrmap = corrmap.mean(dim=('lat','lon')).mrso
+
+# interpolate to regular frac_observed intervals
+#frac_observed = np.arange(0.12,1.0,0.05)
+#corrmap = corrmap.interp(frac_observed=frac_observed)
+corrmap = corrmap.interpolate_na(dim='frac_observed')
+corrmap = corrmap.sel(frac_observed=slice(0,0.9)) # TODO change with higher res
 
 # start figure
 fig = plt.figure(figsize=(10, 10))
@@ -36,7 +68,6 @@ for metric, ax in zip(corrmap.metric, (ax1,ax2,ax3,ax4)):
 # plot multi model mean
 meancorr = corrmap.mean(dim='model')
 meancorr = meancorr.transpose('metric','strategy','frac_observed')
-print(meancorr)
 
 ax1.plot(frac, meancorr[0,0,:].values, c=col[0])
 ax1.plot(frac, meancorr[0,1,:].values, c=col[1])
@@ -76,5 +107,5 @@ legend_colors = [Line2D([0], [0], marker='None', color=col_random, linewidth=2, 
                  Line2D([0], [0], marker='None', color=col_real, label='skill-based')]
 ax2.legend(handles=legend_colors, loc='lower right', borderaxespad=0.)
 
-plt.show()
-#plt.savefig('compare_metrics.png')
+#plt.show()
+plt.savefig('compare_metrics.png')
