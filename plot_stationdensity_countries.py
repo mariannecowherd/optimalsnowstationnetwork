@@ -71,7 +71,6 @@ for region, name in enumerate(region_names):
         res.append(0)
     region_no.append(region)
     print(region, no_stations / area_region)
-import IPython; IPython.embed()
 res = np.array(res)
 region_no = np.array(region_no)
 region_names = np.array(region_names)
@@ -96,11 +95,6 @@ ax.hlines(182, -10, 100, colors='orange')
 ax.hlines(84, -10, 100, colors='brown')
 ax.set_xlim([0,n+1])
 ax.set_ylim([0,2000])
-#kloster = [Line2D([0], [0], marker='s', color='white', linewidth=0, markersize=20, label='Kloster et al (2012)')]
-#gruber = [Line2D([0], [0], marker='s', color='white', linewidth=0, markersize=20, label='Gruber et al (2018)')]
-#ax.legend(handles=kloster, bbox_to_anchor=(0.9, 0.88), loc='center left', borderaxespad=0., frameon=False)
-#ax.legend(handles=gruber, bbox_to_anchor=(0.9, 0.88), loc='center left', borderaxespad=0., frameon=False)
-plt.show()
 
 # calc density
 density = xr.full_like(regions, 0)
@@ -109,22 +103,26 @@ for region, d in zip(region_no, res):
 density = density.where(~np.isnan(landmask))
 
 # plot
+fs = 25
 cmap = plt.get_cmap('Greens').copy()
 bad_color = 'lightgrey'
 cmap.set_under(bad_color)
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
-fig = plt.figure(figsize=(10,6))
+levels = np.arange(0,220,20)
+fig = plt.figure(figsize=(20,10))
 ax = fig.add_subplot(111, projection=proj)
 #cbar_kwargs = {'label': 'stations per million $km^2$'}
 #landmask.plot(ax=ax, add_colorbar=False, cmap='binary', transform=transf, vmin=0, vmax=10)
 im = density.plot(ax=ax, add_colorbar=False, cmap=cmap, transform=transf, 
-                  vmin=1, vmax=200)# cbar_kwargs=cbar_kwargs)
-regionmask.defined_regions.natural_earth.countries_110.plot(line_kws=dict(color='black', linewidth=1), ax=ax, add_label=False, proj=transf)
+                  vmin=1, vmax=200, levels=levels)
+regionmask.defined_regions.natural_earth_v5_0_0.countries_110.plot(line_kws=dict(color='black', linewidth=1), ax=ax, add_label=False, proj=transf)
 cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax)
-cbar.set_label('stations per million $km^2$')
-ax.set_title('(b) station density per country') 
+cbar.set_label('stations per million $km^2$', fontsize=fs)
+ax.set_title('(b) station density per country', fontsize=fs) 
 ax.coastlines()
+ax.set_facecolor('aliceblue')
 #plt.show()
+print('h')
 plt.savefig('stationdensity_country.png')
