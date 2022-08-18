@@ -25,7 +25,7 @@ inactive_networks = ['HOBE','PBO_H20','IMA_CAN1','SWEX_POLAND','CAMPANIA',
 data = data.where(~data.network.isin(inactive_networks), drop=True)
 
 # create koeppen legend
-colors = ['white', 'darkgreen', 'forestgreen', 'darkseagreen', 'linen', 'tan', 
+colors = ['aliceblue', 'darkgreen', 'forestgreen', 'darkseagreen', 'linen', 'tan', 
           'gold', 'lightcoral', 'peru', 'yellowgreen', 'olive', 'olivedrab', 
           'lightgrey', 'whitesmoke']
 names = ['Active station', 'Af Tropical rainforest','Am Tropical monsoon','Aw Tropical savannah',
@@ -44,7 +44,7 @@ fs = 25
 cmap = LinearSegmentedColormap.from_list('koeppen', colors, N=len(colors))
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
-fig = plt.figure(figsize=(30,10))
+fig = plt.figure(figsize=(20,20))
 ax = fig.add_subplot(111, projection=proj)
 ax.coastlines()
 #cbar_kwargs = {'orientation': 'horizontal', 'label': ''}
@@ -52,6 +52,6 @@ ax.coastlines()
 koeppen_simple.plot(ax=ax, cmap=cmap, add_colorbar=False, transform=transf)
 ax.scatter(data.lon, data.lat, transform=transf, c='black', marker='v', s=10)
 ax.set_title('(a) ISMN station network and Koppen-Geiger climates', fontsize=fs)
-ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.03,1),
-          fontsize=fs)
-plt.savefig('worldmap_stations.png')
+ax.legend(handles=legend_elements, loc='lower center', bbox_to_anchor=(0.5,-0.4),
+          fontsize=fs-5, ncol=2)
+plt.savefig('worldmap_stations.pdf')
