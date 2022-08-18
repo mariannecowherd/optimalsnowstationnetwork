@@ -8,8 +8,8 @@ largefilepath = '/net/so4/landclim/bverena/large_files/'
 
 # load data
 testcase = 'new'
-niter = xr.open_mfdataset(f'niter_systematic_*_corr_{testcase}.nc')
-corrmaps = xr.open_mfdataset(f'corrmap_systematic_*_corr_{testcase}.nc')
+niter = xr.open_mfdataset(f'niter_systematic_*_corr_{testcase}.nc', coords='minimal')
+corrmaps = xr.open_mfdataset(f'corrmap_systematic_*_corr_{testcase}.nc', coords='minimal')
 landmask = xr.open_dataarray(f'{largefilepath}opscaling/landmask.nc')
 
 # calc change in pearson when doubling stations
@@ -59,6 +59,7 @@ corr_increase = corr_increase.groupby(regions).mean()
 # round to get rid of 1 slightly below zero number (non significant)
 corr_increase = np.round(corr_increase, 3)
 density_future[0] = 0 # fringe station that isn't really on greenland
+corr_increase[0] = 0 # fringe station that isn't really on greenland
 
 # create world map
 density_c = xr.full_like(regions, 0)
@@ -76,6 +77,7 @@ for region, d in zip(range(int(regions.max().item())), corr_increase):
 # calc station density difference
 density = density_f - density_c
 
+import IPython; IPython.embed()
 # set no change to nan
 density = density.where(density != 0, np.nan)
 doubling = doubling.where(doubling != 0, np.nan)
@@ -94,27 +96,27 @@ transf = ccrs.PlateCarree()
 fig = plt.figure(figsize=(25,7))
 ax1 = fig.add_subplot(121, projection=proj)
 ax2 = fig.add_subplot(122, projection=proj)
-fig.suptitle('Impact of doubling station number', fontsize=fs)
+#fig.suptitle('Impact of doubling station number', fontsize=fs)
 
 im = density.plot(ax=ax1, add_colorbar=False, cmap=cmap, 
                                   transform=transf, vmin=0, vmax=12)
-regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), 
+regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='red', linewidth=1), 
                                          ax=ax1, add_label=False, projection=transf)
 cbar_ax = fig.add_axes([0.48, 0.15, 0.02, 0.7]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax)
 cbar.ax.tick_params(labelsize=fs)
 cbar.set_label('stations per million $km^2$', fontsize=fs)
-ax1.set_title('change in station density', fontsize=fs) 
+ax1.set_title('(a) change in station density', fontsize=fs) 
 
 im = doubling.plot(ax=ax2, add_colorbar=False, cmap=cmap, 
                                   transform=transf, vmin=0, vmax=0.3)
-regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), 
+regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='red', linewidth=1), 
                                          ax=ax2, add_label=False, projection=transf)
 cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax)
 cbar.ax.tick_params(labelsize=fs)
 cbar.set_label('pearson correlation', fontsize=fs)
-ax2.set_title('change in pearson correlation', fontsize=fs) 
+ax2.set_title('(b) change in pearson correlation', fontsize=fs) 
 
 ax1.set_facecolor(bad_color)
 ax2.set_facecolor(bad_color)
