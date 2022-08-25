@@ -54,7 +54,7 @@ agpop = ((crop > 50) | (pop > 30))
 agpop = agpop.drop(['band','spatial_ref','raster']).squeeze()
 
 # area per grid point
-grid = calc_area(regions.lat.values, regions.lon.values)
+grid = calc_area(regions)
 #grid_k = calc_area(koeppen.lat.values, koeppen.lon.values)
 
 # area per grid point KOEPPEN
@@ -145,45 +145,68 @@ legend_elements = [Line2D([0], [0], marker='o', color='w',
                    label='current station number', markerfacecolor=col_random,
                    markeredgecolor='black', alpha=a, markersize=10),
                    Line2D([0], [0], marker='o', color='w', 
-                   label='double station number', markerfacecolor=col_random,
+                   label='globally doubled station number', markerfacecolor=col_random,
                    markeredgecolor=col_random, alpha=1, markersize=10)]
 
-
 # plot
-fig = plt.figure(figsize=(10,10))
-ax1 = fig.add_subplot(211)
-ax2 = fig.add_subplot(212)
+fig = plt.figure(figsize=(10,5))
+ax = fig.add_subplot(111)
 
-ax1.grid(0.2)
-ax2.grid(0.2)
+ax.grid(0.2)
 
-ax1.set_title('(c) Koppen-Geiger climates')
-ax2.set_title('(d) AR6 regions')
+ax.set_title('(c) Koppen-Geiger climates')
 
 for x1,y1,x2,y2 in zip(den_koeppen_current,orig_koeppen,den_koeppen_future,double_koeppen):
-    ax1.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
+    ax.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
 for label,x,y in zip(koeppen_names, den_koeppen_future, double_koeppen):
-    ax1.text(x=x,y=y,s=label)
-ax1.scatter(den_koeppen_current,orig_koeppen, c=col_random, edgecolor='black', alpha=a)
-ax1.scatter(den_koeppen_future,double_koeppen, c=col_random)
+    ax.text(x=x,y=y,s=label)
+ax.scatter(den_koeppen_current,orig_koeppen, c=col_random, edgecolor='black', alpha=a)
+ax.scatter(den_koeppen_future,double_koeppen, c=col_random)
 
+ax.set_xlabel('stations per Mio $km^2$')
 
-for x1,y1,x2,y2 in zip(den_ar6_current,orig_ar6,den_ar6_future,double_ar6):
-    ax2.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
-for label,x,y in zip(region_names, den_ar6_future, double_ar6):
-    ax2.text(x=x,y=y,s=label)
-ax2.scatter(den_ar6_current,orig_ar6, c=col_random, edgecolor='black', alpha=a)
-ax2.scatter(den_ar6_future,double_ar6, c=col_random)
+ax.set_ylabel('pearson correlation')
+ax.set_ylim([0.2,0.7])
 
-
-#ax1.set_xlabel('stations per Mio $km^2$')
-ax2.set_xlabel('stations per Mio $km^2$')
-
-ax1.set_ylabel('pearson correlation')
-ax2.set_ylabel('pearson correlation')
-ax1.set_ylim([0.15,0.9])
-ax2.set_ylim([0.15,0.9])
-
-ax1. legend(handles=legend_elements)
+ax. legend(handles=legend_elements)
 
 plt.savefig('doubling_scatter.pdf', bbox_inches='tight')
+
+# plot
+#fig = plt.figure(figsize=(10,10))
+#ax1 = fig.add_subplot(211)
+#ax2 = fig.add_subplot(212)
+#
+#ax1.grid(0.2)
+#ax2.grid(0.2)
+#
+#ax1.set_title('(c) Koppen-Geiger climates')
+#ax2.set_title('(d) AR6 regions')
+#
+#for x1,y1,x2,y2 in zip(den_koeppen_current,orig_koeppen,den_koeppen_future,double_koeppen):
+#    ax1.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
+#for label,x,y in zip(koeppen_names, den_koeppen_future, double_koeppen):
+#    ax1.text(x=x,y=y,s=label)
+#ax1.scatter(den_koeppen_current,orig_koeppen, c=col_random, edgecolor='black', alpha=a)
+#ax1.scatter(den_koeppen_future,double_koeppen, c=col_random)
+#
+#
+#for x1,y1,x2,y2 in zip(den_ar6_current,orig_ar6,den_ar6_future,double_ar6):
+#    ax2.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
+#for label,x,y in zip(region_names, den_ar6_future, double_ar6):
+#    ax2.text(x=x,y=y,s=label)
+#ax2.scatter(den_ar6_current,orig_ar6, c=col_random, edgecolor='black', alpha=a)
+#ax2.scatter(den_ar6_future,double_ar6, c=col_random)
+#
+#
+##ax1.set_xlabel('stations per Mio $km^2$')
+#ax2.set_xlabel('stations per Mio $km^2$')
+#
+#ax1.set_ylabel('pearson correlation')
+#ax2.set_ylabel('pearson correlation')
+#ax1.set_ylim([0.15,0.9])
+#ax2.set_ylim([0.15,0.9])
+#
+#ax1. legend(handles=legend_elements)
+#
+#plt.savefig('doubling_scatter.pdf', bbox_inches='tight')
