@@ -14,7 +14,7 @@ largefilepath = '/net/so4/landclim/bverena/large_files/'
 filename = f'{largefilepath}opscaling/koeppen_simple.nc'
 koeppen = xr.open_dataarray(filename)
 testcase = 'new'
-niter = xr.open_mfdataset(f'niter_systematic*{testcase}.nc').squeeze().mrso
+niter = xr.open_mfdataset(f'niter_systematic*{testcase}.nc', coords='minimal').squeeze().mrso
 
 # calc rank percentages from iter
 niter = niter / niter.max(dim=("lat", "lon")) # removed 1 - ...
@@ -83,10 +83,18 @@ ax2.coastlines()
 ax3.coastlines()
 ax4.coastlines()
 
-ax1.set_title('(a) Mean monthly values')
-ax2.set_title('(b) Mean seasonal cycle')
-ax3.set_title('(c) Monthly anomalies')
-ax4.set_title('(d) Long-term trend')
+ax1.set_title('(a)')
+ax2.set_title('(c)')
+ax3.set_title('(e)')
+ax4.set_title('(g)')
+ax5.set_title('(b)')
+ax6.set_title('(d)')
+ax7.set_title('(f)')
+ax8.set_title('(h)')
+ax1.text(-0.4, 0.5,'Monthly mean',transform=ax1.transAxes, va='center')
+ax2.text(-0.4, 0.5,'Mean \nseasonal cycle',transform=ax2.transAxes, va='center')
+ax3.text(-0.4, 0.5,'Monthly \nanomalies',transform=ax3.transAxes, va='center')
+ax4.text(-0.4, 0.5,'Long-term trend',transform=ax4.transAxes, va='center')
 
 cbar_ax = fig.add_axes([0.15, 0.07, 0.3, 0.02]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
@@ -115,5 +123,7 @@ ax5.set_ylabel('mean rank percentile')
 ax6.set_ylabel('mean rank percentile')
 ax7.set_ylabel('mean rank percentile')
 ax8.set_ylabel('mean rank percentile')
+
+fig.subplots_adjust(hspace=0.3)
 
 plt.savefig('metrics_maps.png')
