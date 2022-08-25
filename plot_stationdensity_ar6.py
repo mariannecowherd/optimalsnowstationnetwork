@@ -73,15 +73,24 @@ bad_color = 'lightgrey'
 cmap.set_under(bad_color)
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
+levels = np.arange(0,220,20)
 fig = plt.figure(figsize=(20,10))
 ax = fig.add_subplot(111, projection=proj)
 im = density.plot(ax=ax, add_colorbar=False, cmap=cmap, transform=transf, 
-             vmin=1, vmax=200)#, cbar_kwargs=cbar_kwargs)
-regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='lightcoral', linewidth=1), ax=ax, add_label=False, proj=transf)
+             vmin=1, vmax=200, levels=levels)#, cbar_kwargs=cbar_kwargs)
+text_kws = dict(
+    bbox=dict(color="none"),
+    #path_effects=[pe.withStroke(linewidth=2, foreground="w")],
+    #color="#67000d",
+    fontsize=fs-5,
+    )
+regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='lightcoral', linewidth=2), 
+                    ax=ax, label='abbrev', projection=transf, text_kws=text_kws)
 ax.set_title('(c) station density per AR6 region', fontsize=fs)
-cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
-cbar = fig.colorbar(im, cax=cbar_ax)
+cbar_ax = fig.add_axes([0.2, 0.05, 0.5, 0.1]) # left bottom width height
+cbar = fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
 cbar.ax.tick_params(labelsize=fs)
 cbar.set_label('stations per million $km^2$', fontsize=fs)
 ax.coastlines()
-plt.savefig('stationdensity_ar6.png')
+ax.set_facecolor('aliceblue')
+plt.savefig('stationdensity_ar6.pdf')
