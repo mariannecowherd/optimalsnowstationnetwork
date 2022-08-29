@@ -22,6 +22,7 @@ largefilepath = '/net/so4/landclim/bverena/large_files/opscaling/'
 #pop = pop.sel(raster=5) # pop density 2020 identifier
 pop = xr.open_dataarray(f'{largefilepath}population_density_regridded.nc')
 crop = xr.open_dataarray(f'{largefilepath}cropland_regridded.nc')
+import IPython; IPython.embed()
 
 def rename_vars(data):
     varname = list(data.keys())[0]
