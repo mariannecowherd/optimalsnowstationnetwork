@@ -88,13 +88,20 @@ for modelname in modelnames:
     tas = tas.where(~isdesert)   
     pr = pr.where(~isdesert)   
 
+    # mask out land ice (as suggested by MH)
+    # land ice mask sftgif not avail in cmip6-ng.
+
+    # mask out not-agpop-smcoupl region
+    agpop_smcoup_mask = xr.open_dataarray(f'{largefilepath}opscaling/smcoup_agpop_mask.nc')
+    mrso = mrso.where(agpop_smcoup_mask)
+    tas = tas.where(agpop_smcoup_mask)
+    pr = pr.where(agpop_smcoup_mask)
+
     # create landmask of valid (not ice or desert) land mask
     landmask = mask.where((mask != n_greenland) & (mask != n_antarctica))
     landmask = ~np.isnan(landmask)
     landmask = landmask.where(~isdesert, False)
-
-    # mask out land ice (as suggested by MH)
-    # land ice mask sftgif not avail in cmip6-ng.
+    landmask = landmask.where(agpop_smcoup_mask, False)
 
     # create lagged features
     tas_1month = tas.copy(deep=True).shift(time=1, fill_value=0).rename('tas_1m')
@@ -132,8 +139,8 @@ for modelname in modelnames:
     # save
     mrso = mrso.drop_vars('band')
     mrso = mrso.to_dataset(name="mrso")
-    mrso.to_netcdf(f'{upscalepath}mrso_{modelname}.nc')
-    pred.to_netcdf(f'{upscalepath}pred_{modelname}.nc')
+    mrso.to_netcdf(f'{upscalepath}mrso_{modelname}_smcoup.nc')
+    pred.to_netcdf(f'{upscalepath}pred_{modelname}_smcoup.nc')
 
 landmask = landmask.to_dataset(name='landmask').drop_vars('band')
-landmask.to_netcdf(f'{upscalepath}landmask.nc')
+landmask.to_netcdf(f'{upscalepath}landmask_smcoup.nc')
