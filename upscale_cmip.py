@@ -77,7 +77,7 @@ lonlist = stations.lon_cmip.values.tolist()
 niter = xr.full_like(landmask.astype(float), np.nan)
 n = 100
 i = 0
-testcase = '_new'
+testcase = '_smcoup'
 corrmaps = []
 
 # some models (MPI) need individual land mask bec don't have e.g. Cuba
@@ -102,6 +102,9 @@ while True:
         if landmask.loc[lat,lon].item(): # obs gridpoint if station contained and on CMIP land 
             obsmask.loc[lat,lon] = True
 
+    if i == 0:
+        obsmask.to_netcdf(f'{upscalepath}obsmask.nc') # is the same for all models, metrics, strategies 
+
     # divide into obs and unobs gridpoints
     obslat, obslon = np.where(obsmask)
     obslat, obslon = xr.DataArray(obslat, dims='landpoints'), xr.DataArray(obslon, dims='landpoints')
@@ -118,6 +121,10 @@ while True:
     pred_unobs = pred.isel(lat=unobslat, lon=unobslon)
     mrso_mean_unobs = mrso_mean.isel(lat=unobslat, lon=unobslon)
     mrso_std_unobs = mrso_std.isel(lat=unobslat, lon=unobslon)
+
+    month_mask = xr.open_dataarray(f'{upscalepath}monthmask.nc')
+    mask_obs = month_mask.isel(lat=obslat, lon=obslon)
+    mask_unobs = month_mask.isel(lat=unobslat, lon=unobslon)
 
     logging.info(f'{mrso_obs.shape[1]} gridpoints observed, {mrso_unobs.shape[1]} gridpoints unobserved')
 
@@ -182,10 +189,18 @@ while True:
     #logging.info('corr ...')
     corrmap = xr.full_like(landmask.astype(float), np.nan)
     if metric == 'corr': # TODO detrend?
+        # calculate anomalies
         y_test = y_test.groupby('time.month') - mrso_mean_unobs
         y_predict = y_predict.groupby('time.month') - mrso_mean_unobs
         y_train = y_train.groupby('time.month') - mrso_mean_obs
         y_train_predict = y_train_predict.groupby('time.month') - mrso_mean_obs
+    
+        # select 3 driest consecutive months
+        for year in np.unique(y_test.coords['time.year']):
+            y_train.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))] = y_train.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))].where(mask_obs.T.values)
+            y_train_predict.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))] = y_train_predict.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))].where(mask_obs.T.values)
+            y_test.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))] = y_test.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))].where(mask_unobs.T.values)
+            y_predict.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))] = y_predict.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))].where(mask_unobs.T.values)
 
         corr = xr.corr(y_test, y_predict, dim='time')
         corr_train = xr.corr(y_train, y_train_predict, dim='time')
