@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 
 # load data
-testcase = 'new'
+testcase = 'smmask'
 niter = xr.open_mfdataset(f'niter_systematic_*_corr_{testcase}.nc', coords='minimal')
 corrmaps = xr.open_mfdataset(f'corrmap_systematic_*_corr_{testcase}.nc', coords='minimal')
-landmask = xr.open_dataarray(f'{largefilepath}opscaling/landmask.nc')
+obsmask = xr.open_dataarray(f'{largefilepath}opscaling/obsmask.nc').squeeze()
 
 # calc change in pearson when doubling stations
 min_frac = min(corrmaps.mrso.frac_observed)
@@ -25,9 +25,6 @@ niter = niter / niter.max(dim=("lat", "lon")) # removed 1 - ...
 
 # calc model mean
 meaniter = niter.mean(dim='model').squeeze().mrso
-
-# calc obsmask
-obsmask = (np.isnan(meaniter) & landmask)
 
 # select threshold
 meaniter = meaniter < double_frac
@@ -77,7 +74,6 @@ for region, d in zip(range(int(regions.max().item())), corr_increase):
 # calc station density difference
 density = density_f - density_c
 
-import IPython; IPython.embed()
 # set no change to nan
 density = density.where(density != 0, np.nan)
 doubling = doubling.where(doubling != 0, np.nan)
@@ -123,4 +119,4 @@ ax2.set_facecolor(bad_color)
 
 ax1.coastlines()
 ax2.coastlines()
-plt.savefig('change_stationdensity.png')
+plt.savefig(f'change_stationdensity_{testcase}.png')
