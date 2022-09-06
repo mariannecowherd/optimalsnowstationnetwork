@@ -50,14 +50,27 @@ filenames = []
 for modelname in modelnames:
     cmip6_path = f'/net/atmos/data/cmip6-ng/{varname}/mon/g025/'
     filenames.append(glob.glob(cmip6_path + f'{varname}_mon_{modelname}_ssp370_r1i1*_g025.nc')[0])
-tas = open_from_list(filenames)
+tas = open_from_list(filenames).load()
 
 varname = 'evspsbl'
 filenames = []
 for modelname in modelnames:
     cmip6_path = f'/net/atmos/data/cmip6-ng/{varname}/mon/g025/'
     filenames.append(glob.glob(cmip6_path + f'{varname}_mon_{modelname}_ssp370_r1i1*_g025.nc')[0])
-et = open_from_list(filenames)
+et = open_from_list(filenames).load()
+
+varname = 'pr'
+filenames = []
+for modelname in modelnames:
+    cmip6_path = f'/net/atmos/data/cmip6-ng/{varname}/mon/g025/'
+    filenames.append(glob.glob(cmip6_path + f'{varname}_mon_{modelname}_ssp370_r1i1*_g025.nc')[0])
+pr = open_from_list(filenames).load()
+
+# resample to common month def
+# models have different days for monthly values (15th, 16th, diff hours)
+tas = tas.resample(time='M').mean()
+et = et.resample(time='M').mean()
+pr = pr.resample(time='M').mean()
 
 # get landmask
 upscalepath = '/net/so4/landclim/bverena/large_files/opscaling/'
@@ -66,6 +79,35 @@ landmask = xr.open_dataarray(f'{upscalepath}landmask.nc')
 # cut out 2014 to 2050
 et = et.sel(time=slice('2015','2050'))
 tas = tas.sel(time=slice('2015','2050'))
+pr = pr.sel(time=slice('2015','2050'))
+
+# take driest 3 months and mean yearly # consecutive, solution from MH
+n_months = 3
+monthly = pr.groupby('time.month').mean()
+padded = monthly.pad(month=n_months, mode="wrap")
+rolled = padded.rolling(center=True, month=n_months).mean()
+sliced = rolled.isel(month=slice(n_months, -n_months))
+model_mean = sliced.mean(dim='model')
+#central_month = model_mean.argmax(dim='month')
+month_mask = xr.zeros_like(model_mean, bool)
+central_month = getattr(model_mean, "idxmin")("month")
+all_nan = central_month.isnull()
+central_month_arg = (central_month.fillna(0) - 1).astype(int)
+for i in range(-1, 2):
+    # the "% 12" normalizes the index 12 -> 0; 13 -> 1; -1 -> 11
+    idx = (central_month_arg + i) % 12
+    month_mask[{"month": idx}] = True
+#.rolling(month=3).sum().pad(month=1, mode='wrap').mean(dim='model').argmax(dim='month')
+#middle_month.where(landmask).plot()
+#month_mask = month_mask.rename({'month':'time'})
+
+for year in np.unique(pr.coords['time.year']):
+    tas.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))] = tas.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))].where(month_mask.values)
+    et.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))] = et.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))].where(month_mask.values)
+
+# interannual variability
+et = et.resample(time='Y').mean()
+tas = tas.resample(time='Y').mean()
 
 # calc corr and plot
 corr = xr.corr(et, tas, dim='time')
@@ -81,4 +123,5 @@ plt.show()
 pop = xr.open_dataarray(f'{upscalepath}population_density_regridded.nc')
 crop = xr.open_dataarray(f'{upscalepath}cropland_regridded.nc')
 
-import IPython; IPython.embed()
+mask = ((corr < 0) | (crop > 20) | (pop > 100)).drop(['variable','height','band','spatial_ref','raster']).squeeze()
+mask.to_netcdf(f'{upscalepath}smcoup_agpop_mask.nc')
