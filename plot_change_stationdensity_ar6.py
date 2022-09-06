@@ -8,8 +8,10 @@ largefilepath = '/net/so4/landclim/bverena/large_files/'
 
 # load data
 testcase = 'smmask'
-niter = xr.open_mfdataset(f'niter_systematic_*_corr_{testcase}.nc', coords='minimal')
-corrmaps = xr.open_mfdataset(f'corrmap_systematic_*_corr_{testcase}.nc', coords='minimal')
+#metric = 'trend'
+metric = 'corr'
+niter = xr.open_mfdataset(f'niter_systematic_*_{metric}_{testcase}.nc', coords='minimal')
+corrmaps = xr.open_mfdataset(f'corrmap_systematic_*_{metric}_{testcase}.nc', coords='minimal')
 obsmask = xr.open_dataarray(f'{largefilepath}opscaling/obsmask.nc').squeeze()
 
 # calc change in pearson when doubling stations
@@ -18,6 +20,7 @@ double_frac = min_frac*2
 orig = corrmaps.mrso.sel(frac_observed=min_frac, method='nearest')
 double = corrmaps.mrso.sel(frac_observed=double_frac, method='nearest')
 corr_increase = double - orig
+#corr_increase = orig - double # DEBUG
 corr_increase = corr_increase.mean(dim='model').squeeze().load()
 
 # calc rank percentages from iter
@@ -106,6 +109,7 @@ ax1.set_title('(a) change in station density', fontsize=fs)
 
 im = doubling.plot(ax=ax2, add_colorbar=False, cmap=cmap, 
                                   transform=transf, vmin=0, vmax=0.3)
+                                  #transform=transf, vmin=0, vmax=1.0) # DEBUG
 regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='red', linewidth=1), 
                                          ax=ax2, add_label=False, projection=transf)
 cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
@@ -119,4 +123,5 @@ ax2.set_facecolor(bad_color)
 
 ax1.coastlines()
 ax2.coastlines()
+#plt.show()
 plt.savefig(f'change_stationdensity_{testcase}.png')
