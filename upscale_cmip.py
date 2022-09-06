@@ -188,12 +188,18 @@ while True:
 
     #logging.info('corr ...')
     corrmap = xr.full_like(landmask.astype(float), np.nan)
-    if metric == 'corr': # TODO detrend?
+    if metric == 'corr': 
         # calculate anomalies
         y_test = y_test.groupby('time.month') - mrso_mean_unobs
         y_predict = y_predict.groupby('time.month') - mrso_mean_unobs
         y_train = y_train.groupby('time.month') - mrso_mean_obs
         y_train_predict = y_train_predict.groupby('time.month') - mrso_mean_obs
+
+        # resample yearly
+        y_test = y_test.resample(time='1y').mean()
+        y_predict = y_predict.resample(time='1y').mean()
+        y_train = y_train.resample(time='1y').mean()
+        y_train_predict = y_train_predict.resample(time='1y').mean()
     
         # select 3 driest consecutive months
         for year in np.unique(y_test.coords['time.year']):
@@ -213,11 +219,20 @@ while True:
         corr = xr.corr(y_test, y_predict, dim='time')
         corr_train = xr.corr(y_train, y_train_predict, dim='time')
     elif metric == 'trend': # TODO until like in Cook 2020: anomalies with reference to baseline period (1851-1880)
+        # select 3 driest consecutive months
+        for year in np.unique(y_test.coords['time.year']):
+            y_train.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))] = y_train.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))].where(mask_obs.T.values)
+            y_train_predict.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))] = y_train_predict.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))].where(mask_obs.T.values)
+            y_test.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))] = y_test.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))].where(mask_unobs.T.values)
+            y_predict.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))] = y_predict.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))].where(mask_unobs.T.values)
+
+        # resample yearly
         y_test = y_test.resample(time='1y').mean()
         y_predict = y_predict.resample(time='1y').mean()
         y_train = y_train.resample(time='1y').mean()
         y_train_predict = y_train_predict.resample(time='1y').mean()
 
+        # calculate trends
         ms_to_year = 365*24*3600*10**9
         test_trends = y_test.polyfit(dim="time", deg=1).polyfit_coefficients.sel(degree=1)*ms_to_year
         predict_trends = y_predict.polyfit(dim="time", deg=1).polyfit_coefficients.sel(degree=1)*ms_to_year
