@@ -18,9 +18,10 @@ col_real = colors[0,:]
 
 # load files
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-testcase = 'smcoup'
-corrmaps = xr.open_mfdataset(f'corrmap_systematic_*_corr_{testcase}.nc', coords='minimal').squeeze().mrso
-niter = xr.open_mfdataset(f'niter_systematic_*_corr_{testcase}.nc', coords='minimal').squeeze().mrso
+testcase = 'smmask'
+metric = 'trend'
+corrmaps = xr.open_mfdataset(f'corrmap_systematic_*_{metric}_{testcase}.nc', coords='minimal').squeeze().mrso
+niter = xr.open_mfdataset(f'niter_systematic_*_{metric}_{testcase}.nc', coords='minimal').squeeze().mrso
 #landmask = xr.open_dataarray(f'{largefilepath}opscaling/landmask.nc').squeeze()
 obsmask = xr.open_dataarray(f'{largefilepath}opscaling/obsmask.nc').squeeze()
 
@@ -177,9 +178,10 @@ ax2.set_xlabel('stations per Mio $km^2$')
 
 ax1.set_ylabel('pearson correlation')
 ax2.set_ylabel('pearson correlation')
-ax1.set_ylim([0.15,0.9])
-ax2.set_ylim([0.15,0.9])
+#ax1.set_ylim([0.15,0.9]) # DEBUG
+#ax2.set_ylim([0.15,0.9])
 
 ax1. legend(handles=legend_elements)
 
-plt.savefig(f'doubling_scatter_{testcase}.pdf', bbox_inches='tight')
+plt.show()
+#plt.savefig(f'doubling_scatter_{testcase}.pdf', bbox_inches='tight')
