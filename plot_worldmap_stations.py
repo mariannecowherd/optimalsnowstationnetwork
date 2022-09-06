@@ -28,11 +28,11 @@ data = data.where(~data.network.isin(inactive_networks), drop=True)
 colors = ['aliceblue', 'darkgreen', 'forestgreen', 'darkseagreen', 'linen', 'tan', 
           'gold', 'lightcoral', 'peru', 'yellowgreen', 'olive', 'olivedrab', 
           'lightgrey', 'whitesmoke']
-names = ['Active station', 'Af Tropical rainforest','Am Tropical monsoon','Aw Tropical savannah',
-         'BW Arid desert','BS Arid steppe','Cs Temperate, dry summer',
-         'Cw Temperate, dry winter','Cf Temperate, no dry season',
-         'Ds Cold, dry summer','Dw Cold, dry winter', 'Df Cold, no dry season',
-         'ET Polar tundra','EF Polar frost']
+names = ['Active station', 'Af: Tropical rainforest','Am: Tropical monsoon','Aw: Tropical savannah',
+         'BW: Arid desert','BS: Arid steppe','Cs: Temperate, dry summer',
+         'Cw: Temperate, dry winter','Cf: Temperate, no dry season',
+         'Ds: Cold, dry summer','Dw: Cold, dry winter', 'Df: Cold, no dry season',
+         'ET: Polar tundra','EF: Polar frost']
 legend_station = Line2D([0], [0], marker='v', color='w', 
                  label='Active station',markerfacecolor='black', markersize=15)
 legend_elements = [Patch(facecolor=col, label=lab) for col, lab in zip(colors[1:],names[1:])]                   
