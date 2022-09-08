@@ -15,7 +15,6 @@ def drop_time(data): # not necessary after rerun
         print(filename, e)
     return data
 testcase = 'new'
-#corrmap = xr.open_mfdataset(f'corrmap_*_A*_{testcase}.nc') # TODO all models
 corrmap = xr.open_mfdataset(f'corrmap_*_{testcase}.nc',
                             compat='override',
                             coords='minimal',
@@ -25,7 +24,8 @@ corrmap = corrmap.interpolate_na(dim='frac_observed')
 corrmap = corrmap.sel(frac_observed=slice(0,0.9)) # TODO change with higher res
 frac = corrmap.frac_observed
 
-metrics = ['r2','seasonality','corr','trend']
+#metrics = ['r2','seasonality','corr','trend']
+metrics = ['corr','trend']
 strategies = ['systematic','random','interp']
 #strategies = ['systematic','random']
 
@@ -46,33 +46,32 @@ fontsize=15
 plt.rcParams.update({'font.size': fontsize})
 fig, axes = plt.subplots(nrows=15, ncols=4, figsize=(25,30))
 axes[-1,-1].legend(handles=legend_colors, loc='lower center', bbox_to_anchor=(0.1,-1), ncol=3)
-#axes[-1,0].axis('off')
-#axes[-1,1].axis('off')
-#axes[-1,2].axis('off')
-#axes[-1,3].axis('off')
 
-axes[0,0].set_title('(d) Monthly mean')
-axes[0,1].set_title('(b) Mean seasonal cycle')
-axes[0,2].set_title('(a) Monthly Anomalies')
-axes[0,3].set_title('(c) Long-term trend')
+axes[0,0].set_title('(a) Interannual variability')
+axes[0,1].set_title('(b) Long-term trend')
+axes[0,2].set_title('(c) Interannual variability')
+axes[0,3].set_title('(d) Long-term trend')
 
-for m, modelname in enumerate(corrmap.model[15:]):
+for m, (modelname1, modelname2) in enumerate(zip(corrmap.model[:15],corrmap.model[15:])):
 
     for e, metric in enumerate(metrics):
         for s, strategy in enumerate(strategies):
-            axes[m,e].plot(frac, corrmap.sel(metric=metric, model=modelname, strategy=strategy),
+            axes[m,e].plot(frac, corrmap.sel(metric=metric, model=modelname1, strategy=strategy),
+                           c=col[s], alpha=1, linewidth=0.5)
+            axes[m,e+2].plot(frac, corrmap.sel(metric=metric, model=modelname2, strategy=strategy),
                            c=col[s], alpha=1, linewidth=0.5)
 
     axes[m,0].set_ylabel('correlation')
-    axes[m,1].set_ylabel('correlation')
+    axes[m,1].set_ylabel('MAE')
     axes[m,2].set_ylabel('correlation')
     axes[m,3].set_ylabel('MAE')
+
     axes[m,0].grid(alpha=a)
     axes[m,1].grid(alpha=a)
     axes[m,2].grid(alpha=a)
     axes[m,3].grid(alpha=a)
 
-    axes[m,0].text(-0.7, 0.5,modelname.item(),transform=axes[m,0].transAxes, va='center')
+    axes[m,0].text(0.5, 0.1,modelname1.item(),transform=axes[m,0].transAxes, va='center')
+    axes[m,2].text(0.5, 0.1,modelname2.item(),transform=axes[m,2].transAxes, va='center')
 
 plt.savefig(f'compare_models_2.png')
-#meancorr = corrmap.mean(dim='model')
