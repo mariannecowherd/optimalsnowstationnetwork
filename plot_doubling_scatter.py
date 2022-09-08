@@ -19,7 +19,7 @@ col_real = colors[0,:]
 # load files
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 testcase = 'smmask'
-metric = 'trend'
+metric = 'corr'
 corrmaps = xr.open_mfdataset(f'corrmap_systematic_*_{metric}_{testcase}.nc', coords='minimal').squeeze().mrso
 niter = xr.open_mfdataset(f'niter_systematic_*_{metric}_{testcase}.nc', coords='minimal').squeeze().mrso
 #landmask = xr.open_dataarray(f'{largefilepath}opscaling/landmask.nc').squeeze()
@@ -62,9 +62,6 @@ koeppen = regridder(koeppen)
 # station density current and future
 den_ar6_current = obsmask.groupby(regions).sum() / grid.groupby(regions).sum()
 den_ar6_future = (obsmask | meaniter).groupby(regions).sum() / grid.groupby(regions).sum()
-
-den_countries_current = obsmask.groupby(countries).sum() / grid.groupby(countries).sum()
-den_countries_future = (obsmask | meaniter).groupby(countries).sum() / grid.groupby(countries).sum()
 
 den_koeppen_current = obsmask.groupby(koeppen).sum() / grid.groupby(koeppen).sum()
 den_koeppen_future = (obsmask | meaniter).groupby(koeppen).sum() / grid.groupby(koeppen).sum()
