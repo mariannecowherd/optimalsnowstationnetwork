@@ -139,8 +139,8 @@ for modelname in modelnames:
     # save
     mrso = mrso.drop_vars('band')
     mrso = mrso.to_dataset(name="mrso")
-    mrso.to_netcdf(f'{upscalepath}mrso_{modelname}_smcoup.nc')
-    pred.to_netcdf(f'{upscalepath}pred_{modelname}_smcoup.nc')
+    mrso.to_netcdf(f'{upscalepath}mrso_{modelname}.nc')
+    pred.to_netcdf(f'{upscalepath}pred_{modelname}.nc')
 
 landmask = landmask.to_dataset(name='landmask').drop_vars('band')
-landmask.to_netcdf(f'{upscalepath}landmask_smcoup.nc')
+landmask.to_netcdf(f'{upscalepath}landmask.nc')
