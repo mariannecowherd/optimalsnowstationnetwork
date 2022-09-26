@@ -14,7 +14,7 @@ def drop_time(data): # not necessary after rerun
     except ValueError as e:
         print(filename, e)
     return data
-testcase = 'new'
+testcase = 'smmask2'
 corrmap = xr.open_mfdataset(f'corrmap_*_{testcase}.nc',
                             compat='override',
                             coords='minimal',
