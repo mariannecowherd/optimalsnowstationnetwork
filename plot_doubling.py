@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import xarray as xr
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
@@ -22,7 +23,7 @@ koeppen_names = ['Af','Am','Aw','BS','Cs','Cw','Cf','Ds','Dw','Df']
 
 # load files
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-testcase = 'smmask'
+testcase = 'smmask2'
 niter = xr.open_mfdataset(f'niter_systematic_*_{testcase}.nc', coords='minimal').mrso
 corrmaps = xr.open_mfdataset(f'corrmap_systematic_*_{testcase}.nc', coords='minimal').mrso
 obsmask = xr.open_dataarray(f'{largefilepath}opscaling/obsmask.nc').squeeze()
@@ -100,6 +101,7 @@ den_ar6_future = den_ar6_future.drop_sel(mask=ar6_exclude_desertice)
 # drop regions from ar6 that have less than 20% coverage with current mask
 smcoupmask = xr.open_dataarray(f'{largefilepath}opscaling/smcoup_agpop_mask.nc')
 tmp = ((obsmask*grid).groupby(regions).sum() / (smcoupmask*grid).groupby(regions).sum()) > 0.2
+import IPython; IPython.embed()
 # TODO continue
 
 # remove greenland # fringe station that isn't really on greenland
@@ -137,6 +139,7 @@ doubleden = doubleden.where(~np.isnan(landmask), -10)
 
 # plot constants
 fs = 15
+plt.rcParams.update({'font.size': fs})
 cmap = plt.get_cmap('Greens').copy()
 bad_color = 'lightgrey'
 cmap.set_under('aliceblue')
@@ -217,8 +220,8 @@ ax6.grid(0.2)
 ax7.grid(0.2)
 ax8.grid(0.2)
 
-ax5.text(-0.35, 0.5,'Koppen-Geiger \nclimates',transform=ax5.transAxes, va='center', fontsize=fs)
 ax7.text(-0.35, 0.5,'AR6 regions',transform=ax7.transAxes, va='center', fontsize=fs)
+ax5.text(-0.35, 0.5,'Koppen-Geiger \nclimates',transform=ax5.transAxes,fontsize=fs)
 
 for x1,y1,x2,y2 in zip(den_koeppen_current,orig_koeppen[0,:],den_koeppen_future[0,:],double_koeppen[0,:]):
     ax5.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
@@ -257,19 +260,18 @@ ax8.set_ylabel('MAE', fontsize=fs)
 
 ax5.set_ylim([0.15,0.9])
 ax7.set_ylim([0.15,0.9])
-ax6.set_ylim([0.5,2.75])
-ax8.set_ylim([0.5,2.75])
+ax6.set_ylim([0.5,3.75])
+ax8.set_ylim([0.5,3.75])
 
-ax5.set_xlim([-0.2,6])
-ax6.set_xlim([-0.2,6])
+ax5.set_xlim([-0.2,6.5])
+ax6.set_xlim([-0.2,6.5])
 ax7.set_xlim([-0.2,12])
-ax8.set_xlim([-0.2,12])
+ax8.set_xlim([-0.2,15])
 
 ax5.set_title('e)')
 ax6.set_title('f)')
 ax7.set_title('g)')
 ax8.set_title('h)')
 
-matplotlib.rcParams.update({'font.size': fs})
 ax5.legend(handles=legend_elements, loc='lower right')
 plt.savefig('doubling.pdf')
