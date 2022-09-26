@@ -12,7 +12,7 @@ upscalepath = '/net/so4/landclim/bverena/large_files/opscaling/'
 largefilepath = '/net/so4/landclim/bverena/large_files/'
 filename = f'{largefilepath}opscaling/koeppen_simple.nc'
 koeppen = xr.open_dataarray(filename)
-testcase = 'smmask'
+testcase = 'smmask2'
 niter = xr.open_mfdataset(f'niter_systematic*{testcase}.nc', coords='minimal').squeeze().mrso
 landmask = regionmask.defined_regions.natural_earth_v5_0_0.land_110.mask(niter.lon, niter.lat)
 
