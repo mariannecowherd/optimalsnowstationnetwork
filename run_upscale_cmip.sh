@@ -6,7 +6,7 @@ metrics='trend corr'
 strategies='systematic random interp'
 #strategies='systematic'
 #strategies='random'
-testcase='smmask'
+testcase='smmask2'
 for strategy in $strategies; do
     for metric in $metrics; do
         for modelname in $modelnames; do
