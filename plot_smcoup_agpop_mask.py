@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 
 largefilepath = '/net/so4/landclim/bverena/large_files/'
-smmask = xr.open_dataarray(f'{largefilepath}opscaling/smcoup_agpop_mask.nc').squeeze()
+smmask = xr.open_dataarray(f'{largefilepath}opscaling/landmask.nc').squeeze()
 
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
