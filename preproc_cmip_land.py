@@ -37,6 +37,16 @@ def rename_vars(data):
         data['time'] = data.indexes['time'].to_datetimeindex()
     return data
 
+def rename_vars_keep_height(data):
+    varname = list(data.keys())[0]
+    _, _, modelname, _, ensemblename, _ = data.encoding['source'].split('_')
+    data = data.rename({varname: f'{modelname}_{ensemblename}'})
+    if isinstance(data.time[0].item(), cftime._cftime.DatetimeNoLeap):
+        data['time'] = data.indexes['time'].to_datetimeindex()
+    if isinstance(data.time[0].item(), cftime._cftime.Datetime360Day):
+        data['time'] = data.indexes['time'].to_datetimeindex()
+    return data
+
 def open_cmip_suite(modelname, varname):
     cmip6_path = f'/net/atmos/data/cmip6-ng/{varname}/mon/g025/'
     filename = glob.glob(cmip6_path + f'{varname}_mon_{modelname}_ssp370_r1i1*_g025.nc')[0] # sometimes 2 enmseble members are chose. select first one
@@ -49,6 +59,17 @@ def open_cmip_suite(modelname, varname):
     data = data.sortby('lon')
 
     return data
+
+# get permafrost mask like https://doi.org/10.5194/tc-14-3155-2020
+filenames = glob.glob('/net/atmos/data/cmip6-ng/tsl/ann/g025/*_historical_r1i1*.nc')
+files = []
+for filename in filenames:
+    tmp = xr.open_dataset(filename)['tsl']
+    tmp.coords['lon'] = (tmp.coords['lon'] + 180) % 360 - 180
+    tmp = tmp.sortby('lon')
+    tmp = tmp.sel(time=slice('2013','2014')).isel(depth=-1).mean(dim='time').drop('depth')
+    files.append(tmp)
+isfrost = xr.concat(files, dim='model').mean(dim='model') < 273.15
 
 cmip6_path = f'/net/atmos/data/cmip6-ng/mrso/mon/g025/'
 filepaths = glob.glob(f'{cmip6_path}mrso_mon_*_ssp370_*r1i1*_g025.nc')
@@ -90,18 +111,18 @@ for modelname in modelnames:
 
     # mask out land ice (as suggested by MH)
     # land ice mask sftgif not avail in cmip6-ng.
+    # alternative: mask out gridpoints that are constant in time
+    # (and see if that's enough for removing the boreal part)
+    #permafrost = xr.open_dataset(f'{largefilepath}opscaling/ESACCI-PERMAFROST-L4-PFR-MODISLST_CRYOGRID-AREA4_PP-2015-fv03.0.nc') # PROBLEM: very weird non-latlon coordinate system
+    mrso = mrso.where(~isfrost)   
+    tas = tas.where(~isfrost)   
+    pr = pr.where(~isfrost)   
 
     # mask out not-agpop-smcoupl region
     agpop_smcoup_mask = xr.open_dataarray(f'{largefilepath}opscaling/smcoup_agpop_mask.nc')
     mrso = mrso.where(agpop_smcoup_mask)
     tas = tas.where(agpop_smcoup_mask)
     pr = pr.where(agpop_smcoup_mask)
-
-    # create landmask of valid (not ice or desert) land mask
-    landmask = mask.where((mask != n_greenland) & (mask != n_antarctica))
-    landmask = ~np.isnan(landmask)
-    landmask = landmask.where(~isdesert, False)
-    landmask = landmask.where(agpop_smcoup_mask, False)
 
     # create lagged features
     tas_1month = tas.copy(deep=True).shift(time=1, fill_value=0).rename('tas_1m')
@@ -142,5 +163,12 @@ for modelname in modelnames:
     mrso.to_netcdf(f'{upscalepath}mrso_{modelname}.nc')
     pred.to_netcdf(f'{upscalepath}pred_{modelname}.nc')
 
-landmask = landmask.to_dataset(name='landmask').drop_vars('band')
+# create landmask of valid (not ice or desert) land mask
+landmask = regionmask.defined_regions.natural_earth_v5_0_0.land_110.mask(mrso.lon, mrso.lat)
+landmask = landmask.where((mask != n_greenland) & (mask != n_antarctica))
+landmask = landmask.where(~isdesert, np.nan)
+landmask = landmask.where(~isfrost, np.nan)
+landmask = landmask.where(agpop_smcoup_mask, np.nan)
+landmask = ~landmask.astype(bool)
+landmask = landmask.to_dataset(name='landmask').drop_vars(['band','height'])
 landmask.to_netcdf(f'{upscalepath}landmask.nc')
