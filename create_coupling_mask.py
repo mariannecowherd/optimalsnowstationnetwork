@@ -75,6 +75,8 @@ pr = pr.resample(time='M').mean()
 # get landmask
 upscalepath = '/net/so4/landclim/bverena/large_files/opscaling/'
 landmask = xr.open_dataarray(f'{upscalepath}landmask.nc')
+import regionmask
+landmask = regionmask.defined_regions.natural_earth_v5_0_0.land_110.mask(tas.lon, tas.lat) # DEBUG
 
 # cut out 2014 to 2050
 et = et.sel(time=slice('2015','2050'))
@@ -112,7 +114,7 @@ tas = tas.resample(time='Y').mean()
 # calc corr and plot
 corr = xr.corr(et, tas, dim='time')
 corr = corr.mean(dim='model')
-corr = corr.where(landmask)
+corr = corr.where(~np.isnan(landmask)) # DEBUG
 #for modelname in modelnames:
 #    corr.sel(model=modelname).plot()
 #    plt.show()
@@ -123,5 +125,23 @@ plt.show()
 pop = xr.open_dataarray(f'{upscalepath}population_density_regridded.nc')
 crop = xr.open_dataarray(f'{upscalepath}cropland_regridded.nc')
 
-mask = ((corr < 0) | (crop > 20) | (pop > 100)).drop(['variable','height','band','spatial_ref','raster']).squeeze()
+# combine args
+mask = ((corr < 0.2) | (crop > 10) | (pop > 100)).drop(['variable','height','band','spatial_ref','raster']).squeeze()
+mask.where(~np.isnan(landmask)).plot()
+plt.show()
+
+# smooth filter
+from scipy.ndimage import median_filter
+tmp = median_filter(mask, size=(5,5))
+mask = mask | tmp
+mask.where(~np.isnan(landmask)).plot()
+plt.show()
+
+# indiv points
+mask = mask.where((mask.lat >= 40) | (mask.lat <=-40), True)
+mask.where(~np.isnan(landmask)).plot()
+plt.show()
+
+# save
+mask = mask.where(~np.isnan(landmask), False)
 mask.to_netcdf(f'{upscalepath}smcoup_agpop_mask.nc')
