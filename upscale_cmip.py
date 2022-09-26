@@ -77,7 +77,7 @@ lonlist = stations.lon_cmip.values.tolist()
 niter = xr.full_like(landmask.astype(float), np.nan)
 n = 100
 i = 0
-testcase = '_smmask'
+testcase = '_smmask2'
 corrmaps = []
 
 # some models (MPI) need individual land mask bec don't have e.g. Cuba
