@@ -61,16 +61,16 @@ ax1.set_title('(a)')
 ax2.set_title('(b)')
 ax3.set_title('(c)')
 ax4.set_title('(d)')
-ax1.text(-0.3, 0.5,'Interannual \nvariability',transform=ax1.transAxes, va='center')
-ax3.text(-0.3, 0.5,'Long-term \ntrend',transform=ax3.transAxes, va='center')
+ax1.text(-0.3, 0.5,'Inter-annual \nvariability',transform=ax1.transAxes, va='center')
+ax3.text(-0.3, 0.5,'Trend',transform=ax3.transAxes, va='center')
 
 cbar_ax = fig.add_axes([0.13, 0.1, 0.3, 0.02]) # left bottom width height
 cbar = fig.colorbar(im1, cax=cbar_ax, orientation='horizontal')
-cbar.set_label('Multi-model mean rank percentile')
+cbar.set_label('Multi-model mean normalized rank')
 
 cbar_ax2 = fig.add_axes([0.59, 0.1, 0.3, 0.02]) # left bottom width height
 cbar = fig.colorbar(im2, cax=cbar_ax2, orientation='horizontal')
-cbar.set_label('Multi-model standard deviation rank percentile')
+cbar.set_label('Multi-model standard deviation normalized rank')
 
 ax1.set_facecolor(bad_color)
 ax2.set_facecolor(bad_color)
@@ -80,4 +80,4 @@ ax4.set_facecolor(bad_color)
 fig.subplots_adjust(hspace=0.1, bottom=0.15, wspace=0.4)
 
 #plt.show()
-plt.savefig('metrics.png', dpi=300)
+plt.savefig('metrics.pdf')
