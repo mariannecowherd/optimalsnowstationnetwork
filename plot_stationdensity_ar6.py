@@ -66,31 +66,42 @@ for region, d in zip(range(int(regions.max().item())), res):
     density = density.where(regions != region, d) # unit stations per bio square km
 density = density.where(~np.isnan(landmask))
 
+# set zero density to nan
+density = density.where(density != 0, np.nan)
+
+# set ocean negative number
+density = density.where(~np.isnan(landmask), -10)
+
+density = np.round(density,3)
+
+# plot constants
 # plot
 fs = 25
+plt.rcParams.update({'font.size': fs})
 cmap = plt.get_cmap('Greens').copy()
 bad_color = 'lightgrey'
-cmap.set_under(bad_color)
+cmap.set_under('aliceblue')
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
 levels = np.arange(0,220,20)
 fig = plt.figure(figsize=(20,10))
 ax = fig.add_subplot(111, projection=proj)
+ax.set_facecolor(bad_color)
 im = density.plot(ax=ax, add_colorbar=False, cmap=cmap, transform=transf, 
-             vmin=1, vmax=200, levels=levels)#, cbar_kwargs=cbar_kwargs)
-text_kws = dict(
-    #path_effects=[pe.withStroke(linewidth=2, foreground="w")],
-    #color="#67000d",
-    bbox=dict(pad=0.2, color="w"),
-    fontsize=fs-2,
-    )
-regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='lightcoral', linewidth=1), 
-                    ax=ax, label='abbrev', projection=transf, text_kws=text_kws)
+             vmin=0, vmax=200, levels=levels)#, cbar_kwargs=cbar_kwargs)
+#text_kws = dict(
+#    #path_effects=[pe.withStroke(linewidth=2, foreground="w")],
+#    #color="#67000d",
+#    bbox=dict(pad=0.2, color="w"),
+#    fontsize=fs-2,
+#    )
+regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), 
+                    #ax=ax, label='abbrev', projection=transf, text_kws=text_kws)
+                    ax=ax, projection=transf, add_label=False)
 ax.set_title('(c) station density per AR6 region', fontsize=fs)
 cbar_ax = fig.add_axes([0.2, 0.05, 0.5, 0.05]) # left bottom width height
 cbar = fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
 cbar.ax.tick_params(labelsize=fs)
 cbar.set_label('stations per million $km^2$', fontsize=fs)
 ax.coastlines()
-ax.set_facecolor('aliceblue')
 plt.savefig('stationdensity_ar6.pdf')
