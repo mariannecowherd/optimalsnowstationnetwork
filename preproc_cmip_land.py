@@ -1,5 +1,8 @@
 """
-TEST
+read in CMIP6 model ensemble each model individually, extract preciptation,
+temperatuer and soil moisture. for each grid point on soil moisture, extract
+precipitation and temperature from the last 12 months. save as machine-learning
+digestible table.
 """
 
 import random
@@ -77,7 +80,6 @@ modelnames = [filepath.split('_')[2] for filepath in filepaths]
 modelnames.remove('MCM-UA-1-0') # does not have pr
 modelnames = np.unique(modelnames) # double entries
 for modelname in modelnames:
-    #modelname = 'MPI-ESM1-2-LR' # DEBUG
     print(modelname)
 
     # load data

@@ -1,5 +1,6 @@
 """
-TEST
+Take locations of ISMN stations and divide cmip data into observed and unobserved
+part depending on that. upscale and iteratively add stations. save results.
 """
 
 import cftime
@@ -27,7 +28,7 @@ logging.getLogger('GDAL').setLevel(logging.WARNING)
 parser = argparse.ArgumentParser()
 parser.add_argument('--method', '-m', dest='method', type=str) # eg systematic
 parser.add_argument('--metric', '-p', dest='metric', type=str) # eg corr
-parser.add_argument('--model', '-c', dest='model', type=str)
+parser.add_argument('--model', '-c', dest='model', type=str) # eg MIROC6
 args = parser.parse_args()
 
 method = args.method
@@ -43,7 +44,6 @@ logging.info(f'method {method} metric {metric} modelname {modelname}...')
 logging.info('read cmip ...')
 mrso = xr.open_dataset(f'{upscalepath}mrso_{modelname}.nc')['mrso'].load().squeeze()
 pred = xr.open_dataset(f'{upscalepath}pred_{modelname}.nc').load().squeeze()
-#landmask = ~np.isnan(mrso.mean(dim='time')) # models need individual landmasks
 landmask = xr.open_dataset(f'{upscalepath}landmask.nc').to_array().squeeze()
 landmask = landmask.drop_vars('variable')
 
@@ -133,15 +133,7 @@ while True:
         latlist = mrso_obs.lat.values.tolist()
         lonlist = mrso_obs.lon.values.tolist()
 
-    # drop missing landpoints if there are any (e.g. MPI)
-    # dropping nan landpoints does not work because unstack fails bec missing points
-    #if np.isnan(mrso_obs).sum() != 0:
-    #    pred_obs = pred_obs.where(~np.isnan(mrso_obs)).dropna(dim='landpoints', how='all')
-    #    mrso_obs = mrso_obs.dropna(dim='landpoints', how='all')
-    #    pred_obs = pred_obs.dropna(dim='landpoints', how='all')
-
     # stack landpoints and time
-    #logging.info('stack')
     y_train = mrso_obs.stack(datapoints=('landpoints','time'))
     y_test = mrso_unobs.stack(datapoints=('landpoints','time'))
 
@@ -155,7 +147,7 @@ while True:
         n = mrso_unobs.shape[1] # rest of points
         logging.info(f'last iteration with {n} points ...')
 
-    # rf TODO later use GP
+    # train and predict with random forest
     kwargs = {'n_estimators': 100,
               'min_samples_leaf': 1, # those are all default values anyways
               'max_features': 'sqrt', 
@@ -165,11 +157,9 @@ while True:
               'n_jobs': 40, # set to number of trees
               'verbose': 0}
 
-    #logging.info('train ...')
     rf = RandomForestRegressor(**kwargs)
     rf.fit(X_train, y_train)
 
-    #logging.info('predict ...')
     y_predict = xr.full_like(y_test, np.nan)
     y_predict[:] = rf.predict(X_test)
 
@@ -177,16 +167,13 @@ while True:
     y_train_predict[:] = rf.predict(X_train)
 
     # unstack
-    #logging.info('unstack ...')
     y_predict = y_predict.unstack('datapoints').load()
     y_test = y_test.unstack('datapoints').load()
-    #y_test.to_netcdf('y_test.nc') # DEBUG
-    #y_predict.to_netcdf('y_predict.nc') #DEBUG
     y_train = y_train.unstack('datapoints').load()
     y_train_predict = y_train_predict.unstack('datapoints').load()
     y_latlon = y_test.copy(deep=True)
-
-    #logging.info('corr ...')
+    
+    # calculate upscale performance
     corrmap = xr.full_like(landmask.astype(float), np.nan)
     if metric == 'corr': 
         # calculate anomalies
@@ -219,7 +206,7 @@ while True:
 
         corr = xr.corr(y_test, y_predict, dim='time')
         corr_train = xr.corr(y_train, y_train_predict, dim='time')
-    elif metric == 'trend': # TODO until like in Cook 2020: anomalies with reference to baseline period (1851-1880)
+    elif metric == 'trend': #until like in Cook 2020: anomalies with reference to baseline period (1851-1880)
         # select 3 driest consecutive months
         for year in np.unique(y_test.coords['time.year']):
             y_train.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))] = y_train.loc[dict(time=slice(f'{year}-01-01', f'{year+1}-01-01'))].where(mask_obs.T.values)
@@ -258,7 +245,6 @@ while True:
     elif method == 'random':
         landpts = np.random.choice(np.arange(corr.size), size=n, replace=False)
     elif method == 'interp':
-        # landpts = [] # actually needs to recompute for every point
         landlat = mrso_obs.lat.values.tolist() + mrso_unobs.lat.values.tolist()
         landlon = mrso_obs.lon.values.tolist() + mrso_unobs.lon.values.tolist()
         nobs = mrso_obs.shape[-1]
