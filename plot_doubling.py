@@ -99,10 +99,13 @@ den_ar6_current = den_ar6_current.drop_sel(mask=ar6_exclude_desertice)
 den_ar6_future = den_ar6_future.drop_sel(mask=ar6_exclude_desertice)
 
 # drop regions from ar6 that have less than 20% coverage with current mask
-smcoupmask = xr.open_dataarray(f'{largefilepath}opscaling/smcoup_agpop_mask.nc')
-tmp = ((obsmask*grid).groupby(regions).sum() / (smcoupmask*grid).groupby(regions).sum()) > 0.2
-import IPython; IPython.embed()
-# TODO continue
+smcoupmask = xr.open_dataarray(f'{largefilepath}opscaling/landmask.nc')
+tmp = np.where((((smcoupmask | obsmask)*grid).groupby(regions).sum() / grid.groupby(regions).sum() < 0.1).values)[0].tolist()
+ar6_exclude_lowcov = list(set(tmp) - set(ar6_exclude_desertice))
+orig_ar6 = orig_ar6.drop_sel(mask=ar6_exclude_lowcov)
+double_ar6 = double_ar6.drop_sel(mask=ar6_exclude_lowcov)
+den_ar6_current = den_ar6_current.drop_sel(mask=ar6_exclude_lowcov)
+den_ar6_future = den_ar6_future.drop_sel(mask=ar6_exclude_lowcov)
 
 # remove greenland # fringe station that isn't really on greenland
 den_ar6_current[0] = np.nan 
@@ -138,58 +141,70 @@ doubling = doubling.where(~np.isnan(landmask), -10)
 doubleden = doubleden.where(~np.isnan(landmask), -10)
 
 # plot constants
-fs = 15
+fs = 24
 plt.rcParams.update({'font.size': fs})
 cmap = plt.get_cmap('Greens').copy()
 bad_color = 'lightgrey'
 cmap.set_under('aliceblue')
 proj = ccrs.Robinson()
 transf = ccrs.PlateCarree()
-fig = plt.figure(figsize=(20,20))
-ax1 = fig.add_subplot(421, projection=proj)
-ax2 = fig.add_subplot(422, projection=proj)
-ax3 = fig.add_subplot(423, projection=proj)
-ax4 = fig.add_subplot(424, projection=proj)
-ax5 = fig.add_subplot(425)
-ax6 = fig.add_subplot(426)
-ax7 = fig.add_subplot(427)
-ax8 = fig.add_subplot(428)
+fig = plt.figure(figsize=(25,20))
+ax1 = fig.add_subplot(321, projection=proj)
+ax2 = fig.add_subplot(322, projection=proj)
+ax3 = fig.add_subplot(323, projection=proj)
+ax4 = fig.add_subplot(324, projection=proj)
+ax5 = fig.add_subplot(325)
+ax6 = fig.add_subplot(326)
+#ax7 = fig.add_subplot(427)
+#ax8 = fig.add_subplot(428)
+plt.rcParams.update({'font.size': fs})
 
 # maps plot
-im = doubleden[0,:,:].plot(ax=ax1, add_colorbar=False, cmap=cmap, 
-                                  transform=transf, vmin=0, vmax=3)
-im = doubleden[1,:,:].plot(ax=ax2, add_colorbar=False, cmap=cmap, 
-                                  transform=transf, vmin=0, vmax=3)
-im = doubling[0,:,:].plot(ax=ax3, add_colorbar=False, cmap=cmap,
-                                  transform=transf, vmin=0, vmax=0.3)
-im = doubling[1,:,:].plot(ax=ax4, add_colorbar=False, cmap=cmap, 
-                                  transform=transf, vmin=0, vmax=1.0) # DEBUG
+doubleden[0,:,:].plot(ax=ax1, add_colorbar=False, cmap=cmap, 
+                                  levels=np.arange(0,3.5,0.5), transform=transf, 
+                                  vmin=0, vmax=3)
+im1 = doubleden[1,:,:].plot(ax=ax2, add_colorbar=False, cmap=cmap, 
+                                   levels=np.arange(0,3.5,0.5), transform=transf, 
+                                   vmin=0, vmax=3)
+im2 = doubling[0,:,:].plot(ax=ax3, add_colorbar=False, cmap=cmap,
+                                    levels=np.arange(0,0.35,0.05), 
+                                    transform=transf, vmin=0, vmax=0.3)
+im3 = doubling[1,:,:].plot(ax=ax4, add_colorbar=False, cmap=cmap, 
+                                    levels=np.arange(0,1.2,0.2), 
+                                    transform=transf, vmin=0, vmax=1.0) # DEBUG
 
-regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='lightcoral', linewidth=1), 
+regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), 
                                          ax=ax1, add_label=False, projection=transf)
-regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='lightcoral', linewidth=1), 
+regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), 
                                          ax=ax2, add_label=False, projection=transf)
-regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='lightcoral', linewidth=1), 
+regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), 
                                          ax=ax3, add_label=False, projection=transf)
-regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='lightcoral', linewidth=1), 
+regionmask.defined_regions.ar6.land.plot(line_kws=dict(color='black', linewidth=1), 
                                          ax=ax4, add_label=False, projection=transf)
 
-#cbar_ax = fig.add_axes([0.92, 0.15, 0.02, 0.7]) # left bottom width height
-#cbar = fig.colorbar(im, cax=cbar_ax)
-#cbar.ax.tick_params(labelsize=fs)
-#cbar.set_label('pearson correlation', fontsize=fs)
+left = 0.16
+bottom = 0.37
+cbar_ax = fig.add_axes([left, 0.67, 0.7, 0.02]) # left bottom width height
+cbar = fig.colorbar(im1, cax=cbar_ax, orientation='horizontal')
+cbar.ax.tick_params(labelsize=fs)
+cbar.set_label('additional stations per million $km^2$', fontsize=fs)
 
-#cbar_ax = fig.add_axes([0.48, 0.15, 0.02, 0.7]) # left bottom width height # TODO
-#cbar = fig.colorbar(im, cax=cbar_ax)
-#cbar.ax.tick_params(labelsize=fs)
-#cbar.set_label('stations per million $km^2$', fontsize=fs)
+cbar_ax = fig.add_axes([left, bottom, 0.27, 0.02]) # left bottom width height 
+cbar = fig.colorbar(im2, cax=cbar_ax, orientation='horizontal')
+cbar.ax.tick_params(labelsize=fs)
+cbar.set_label('pearson correlation increase', fontsize=fs)
+
+cbar_ax = fig.add_axes([0.58, bottom, 0.27, 0.02]) # left bottom width height 
+cbar = fig.colorbar(im3, cax=cbar_ax, orientation='horizontal')
+cbar.ax.tick_params(labelsize=fs)
+cbar.set_label('MAE decrease [$kg\;m^{-2}$]', fontsize=fs)
 
 #ax1.text(-0.3, 0.5,'change in station density',transform=ax1.transAxes, va='center', fontsize=fs)
 #ax3.text(-0.3, 0.5,'change in performance metric',transform=ax3.transAxes, va='center', fontsize=fs)
-ax1.set_title('(a) Interannual variability: change in station density')
-ax2.set_title('(b) Long-term trend: change in station density')
-ax3.set_title('(c) Interannual variability: change in correlation')
-ax4.set_title('(d) Long-term trend: change in MAE')
+ax1.set_title('(a) Interannual variability: change in station density', fontsize=fs)
+ax2.set_title('(b) Trend: change in station density', fontsize=fs)
+ax3.set_title('(c) Interannual variability: change in correlation', fontsize=fs)
+ax4.set_title('(d) Trend: change in MAE', fontsize=fs)
 
 #ax1.set_title('', fontsize=fs) 
 #ax2.set_title('', fontsize=fs) 
@@ -210,68 +225,77 @@ ax4.coastlines()
 a = 0.5
 legend_elements = [Line2D([0], [0], marker='o', color='w', 
                    label='current station number', markerfacecolor=col_random,
-                   markeredgecolor='black', alpha=a, markersize=10),
+                   markeredgecolor='black', alpha=a, markersize=15),
                    Line2D([0], [0], marker='o', color='w', 
                    label='globally doubled station number', markerfacecolor=col_random,
-                   markeredgecolor=col_random, alpha=1, markersize=10)]
+                   markeredgecolor=col_random, alpha=1, markersize=15)]
 
 ax5.grid(0.2)
 ax6.grid(0.2)
-ax7.grid(0.2)
-ax8.grid(0.2)
+#ax7.grid(0.2)
+#ax8.grid(0.2)
 
-ax7.text(-0.35, 0.5,'AR6 regions',transform=ax7.transAxes, va='center', fontsize=fs)
-ax5.text(-0.35, 0.5,'Koppen-Geiger \nclimates',transform=ax5.transAxes,fontsize=fs)
+#ax7.text(-0.35, 0.5,'AR6 regions',transform=ax7.transAxes, va='center', fontsize=fs)
+#ax5.text(-0.35, 0.5,'Koppen-Geiger \nclimates',transform=ax5.transAxes,fontsize=fs)
+s = 250
 
+#'Af','Am','Aw','BS','Cs','Cw','Cf','Ds','Dw','Df'
+y_offset = [0.02,-0.02,0,0,0,0,0,0,-0.01,0]
 for x1,y1,x2,y2 in zip(den_koeppen_current,orig_koeppen[0,:],den_koeppen_future[0,:],double_koeppen[0,:]):
-    ax5.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
-for label,x,y in zip(koeppen_names, den_koeppen_future[0,:], double_koeppen[0,:]):
-    ax5.text(x=x+0.08,y=y,s=label)
-ax5.scatter(den_koeppen_current,orig_koeppen[0,:], c=col_random, edgecolor='black', alpha=a)
-ax5.scatter(den_koeppen_future[0,:],double_koeppen[0,:], c=col_random)
+    ax5.plot([x1, x2], [y1, y2], c=col_random, alpha=a, linewidth=2)
+for n, (label,x,y) in enumerate(zip(koeppen_names, den_koeppen_future[0,:], double_koeppen[0,:])):
+    ax5.text(x=x+0.10,y=y+y_offset[n],s=label)
+ax5.scatter(den_koeppen_current,orig_koeppen[0,:], c=col_random, edgecolor='black', alpha=a, s=s)
+ax5.scatter(den_koeppen_future[0,:],double_koeppen[0,:], c=col_random, s=s)
 
+#'Af','Am','Aw','BS','Cs','Cw','Cf','Ds','Dw','Df'
+y_offset = [0,0,0,0,-0.15,0,0,0,0,0]
 for x1,y1,x2,y2 in zip(den_koeppen_current,orig_koeppen[1,:],den_koeppen_future[1,:],double_koeppen[1,:]):
-    ax6.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
-for label,x,y in zip(koeppen_names, den_koeppen_future[1,:], double_koeppen[1,:]):
-    ax6.text(x=x+0.08,y=y,s=label)
-ax6.scatter(den_koeppen_current,orig_koeppen[1,:], c=col_random, edgecolor='black', alpha=a)
-ax6.scatter(den_koeppen_future[1,:],double_koeppen[1,:], c=col_random)
+    ax6.plot([x1, x2], [y1, y2], c=col_random, alpha=a, linewidth=2)
+for n, (label,x,y) in enumerate(zip(koeppen_names, den_koeppen_future[1,:], double_koeppen[1,:])):
+    ax6.text(x=x+0.10,y=y+y_offset[n],s=label)
+ax6.scatter(den_koeppen_current,orig_koeppen[1,:], c=col_random, edgecolor='black', alpha=a, s=s)
+ax6.scatter(den_koeppen_future[1,:],double_koeppen[1,:], c=col_random, s=s)
 
-for x1,y1,x2,y2 in zip(den_ar6_current,orig_ar6[0,:],den_ar6_future[0,:],double_ar6[0,:]):
-    ax7.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
-for label,x,y in zip(region_names, den_ar6_future[0,:], double_ar6[0,:]):
-    ax7.text(x=x+0.08,y=y,s=label)
-ax7.scatter(den_ar6_current,orig_ar6[0,:], c=col_random, edgecolor='black', alpha=a)
-ax7.scatter(den_ar6_future[0,:],double_ar6[0,:], c=col_random)
+#for x1,y1,x2,y2 in zip(den_ar6_current,orig_ar6[0,:],den_ar6_future[0,:],double_ar6[0,:]):
+#    ax7.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
+#for label,x,y in zip(region_names, den_ar6_future[0,:], double_ar6[0,:]):
+#    ax7.text(x=x+0.08,y=y,s=label)
+#ax7.scatter(den_ar6_current,orig_ar6[0,:], c=col_random, edgecolor='black', alpha=a)
+#ax7.scatter(den_ar6_future[0,:],double_ar6[0,:], c=col_random)
+#
+#for x1,y1,x2,y2 in zip(den_ar6_current,orig_ar6[1,:],den_ar6_future[1,:],double_ar6[1,:]):
+#    ax8.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
+#for label,x,y in zip(region_names, den_ar6_future[1,:], double_ar6[1,:]):
+#    ax8.text(x=x+0.08,y=y,s=label)
+#ax8.scatter(den_ar6_current,orig_ar6[1,:], c=col_random, edgecolor='black', alpha=a)
+#ax8.scatter(den_ar6_future[1,:],double_ar6[1,:], c=col_random)
 
-for x1,y1,x2,y2 in zip(den_ar6_current,orig_ar6[1,:],den_ar6_future[1,:],double_ar6[1,:]):
-    ax8.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
-for label,x,y in zip(region_names, den_ar6_future[1,:], double_ar6[1,:]):
-    ax8.text(x=x+0.08,y=y,s=label)
-ax8.scatter(den_ar6_current,orig_ar6[1,:], c=col_random, edgecolor='black', alpha=a)
-ax8.scatter(den_ar6_future[1,:],double_ar6[1,:], c=col_random)
-
-ax7.set_xlabel('stations per Mio $km^2$', fontsize=fs)
-ax8.set_xlabel('stations per Mio $km^2$', fontsize=fs)
+#ax7.set_xlabel('stations per Mio $km^2$', fontsize=fs)
+#ax8.set_xlabel('stations per Mio $km^2$', fontsize=fs)
+ax5.set_xlabel('stations per Mio $km^2$', fontsize=fs)
+ax6.set_xlabel('stations per Mio $km^2$', fontsize=fs)
 ax5.set_ylabel('pearson correlation', fontsize=fs)
-ax7.set_ylabel('pearson correlation', fontsize=fs)
-ax6.set_ylabel('MAE', fontsize=fs)
-ax8.set_ylabel('MAE', fontsize=fs)
+#ax7.set_ylabel('pearson correlation', fontsize=fs)
+ax6.set_ylabel('MAE [$kg\;m^{-2}$]', fontsize=fs)
+#ax8.set_ylabel('MAE', fontsize=fs)
 
-ax5.set_ylim([0.15,0.9])
-ax7.set_ylim([0.15,0.9])
-ax6.set_ylim([0.5,3.75])
-ax8.set_ylim([0.5,3.75])
+ax5.set_ylim([0.3,0.8])
+#ax7.set_ylim([0.15,0.9])
+ax6.set_ylim([0.5,3])
+#ax8.set_ylim([0.5,3.75])
 
 ax5.set_xlim([-0.2,6.5])
 ax6.set_xlim([-0.2,6.5])
-ax7.set_xlim([-0.2,12])
-ax8.set_xlim([-0.2,15])
+#ax7.set_xlim([-0.2,12])
+#ax8.set_xlim([-0.2,15])
 
-ax5.set_title('e)')
-ax6.set_title('f)')
-ax7.set_title('g)')
-ax8.set_title('h)')
+ax5.set_title('(e) Interannual variability: \nchange per Koppen-Geiger climate', fontsize=fs)
+ax6.set_title('(f) Long-term trend: \nchange per Koppen-Geiger climate', fontsize=fs)
+#ax7.set_title('g)')
+#ax8.set_title('h)')
 
 ax5.legend(handles=legend_elements, loc='lower right')
+plt.subplots_adjust(hspace=0.75)
+plt.rcParams.update({'font.size': fs})
 plt.savefig('doubling.pdf')
