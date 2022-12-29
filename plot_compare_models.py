@@ -74,4 +74,8 @@ for m, (modelname1, modelname2) in enumerate(zip(corrmap.model[:15],corrmap.mode
     axes[m,0].text(0.5, 0.1,modelname1.item(),transform=axes[m,0].transAxes, va='center')
     axes[m,2].text(0.5, 0.1,modelname2.item(),transform=axes[m,2].transAxes, va='center')
 
-plt.savefig(f'compare_models_2.png')
+axes[-1,0].set_xlabel('Percentage observed points')
+axes[-1,1].set_xlabel('Percentage observed points')
+axes[-1,2].set_xlabel('Percentage observed points')
+axes[-1,3].set_xlabel('Percentage observed points')
+plt.savefig(f'compare_models_2.pdf')
