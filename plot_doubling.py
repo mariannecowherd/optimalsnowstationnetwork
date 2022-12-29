@@ -135,6 +135,7 @@ for region in corr_increase.mask:
 # set no change to nan
 doubleden = doubleden.where(doubleden != 0, np.nan)
 doubling = doubling.where(doubling != 0, np.nan)
+import IPython; IPython.embed()
 
 # set ocean negative number
 doubling = doubling.where(~np.isnan(landmask), -10)
@@ -192,7 +193,7 @@ cbar.set_label('additional stations per million $km^2$', fontsize=fs)
 cbar_ax = fig.add_axes([left, bottom, 0.27, 0.02]) # left bottom width height 
 cbar = fig.colorbar(im2, cax=cbar_ax, orientation='horizontal')
 cbar.ax.tick_params(labelsize=fs)
-cbar.set_label('pearson correlation increase', fontsize=fs)
+cbar.set_label('correlation increase', fontsize=fs)
 
 cbar_ax = fig.add_axes([0.58, bottom, 0.27, 0.02]) # left bottom width height 
 cbar = fig.colorbar(im3, cax=cbar_ax, orientation='horizontal')
@@ -275,7 +276,7 @@ ax6.scatter(den_koeppen_future[1,:],double_koeppen[1,:], c=col_random, s=s)
 #ax8.set_xlabel('stations per Mio $km^2$', fontsize=fs)
 ax5.set_xlabel('stations per Mio $km^2$', fontsize=fs)
 ax6.set_xlabel('stations per Mio $km^2$', fontsize=fs)
-ax5.set_ylabel('pearson correlation', fontsize=fs)
+ax5.set_ylabel('Pearson correlation', fontsize=fs)
 #ax7.set_ylabel('pearson correlation', fontsize=fs)
 ax6.set_ylabel('MAE [$kg\;m^{-2}$]', fontsize=fs)
 #ax8.set_ylabel('MAE', fontsize=fs)
