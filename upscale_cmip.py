@@ -121,9 +121,6 @@ while True:
             f"{upscalepath}obsmask.nc"
         )  # is the same for all models, metrics, strategies
         
-        # get list of lat, lon for each existing station
-        latlist = mrso_obs.lat.values.tolist()
-        lonlist = mrso_obs.lon.values.tolist()
 
     # divide into obs and unobs gridpoints
     obslat, obslon = np.where(obsmask)
@@ -153,6 +150,12 @@ while True:
     logging.info(
         f"{mrso_obs.shape[1]} gridpoints observed, {mrso_unobs.shape[1]} gridpoints unobserved"
     )
+
+    if i == 0: 
+
+        # get list of lat, lon for each existing station
+        latlist = mrso_obs.lat.values.tolist()
+        lonlist = mrso_obs.lon.values.tolist()
 
     # stack landpoints and time
     y_train = mrso_obs.stack(datapoints=("landpoints", "time"))
