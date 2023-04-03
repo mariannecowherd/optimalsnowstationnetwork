@@ -10,4 +10,4 @@ The workflow is as follows:
 4) (optionally) plot the results with the plot scripts provided.
 
 Resources:
-  [1] Bessenbacher, V., Gudmundsson, L. and Seneviratne, S. I. (2023): Optimizing soil moisture station networks for future climates. Geophysical Research Letters, 50, e2022GL101667. https://doi. org/10.1029/2022GL101667
+  [1] Bessenbacher, V., Gudmundsson, L. and Seneviratne, S. I. (2023): Optimizing soil moisture station networks for future climates. Geophysical Research Letters, 50, e2022GL101667. https://doi.org/10.1029/2022GL101667
