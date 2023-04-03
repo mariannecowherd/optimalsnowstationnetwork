@@ -135,7 +135,6 @@ for region in corr_increase.mask:
 # set no change to nan
 doubleden = doubleden.where(doubleden != 0, np.nan)
 doubling = doubling.where(doubling != 0, np.nan)
-import IPython; IPython.embed()
 
 # set ocean negative number
 doubling = doubling.where(~np.isnan(landmask), -10)
@@ -242,21 +241,23 @@ s = 250
 
 #'Af','Am','Aw','BS','Cs','Cw','Cf','Ds','Dw','Df'
 y_offset = [0.02,-0.02,0,0,0,0,0,0,-0.01,0]
-for x1,y1,x2,y2 in zip(den_koeppen_current,orig_koeppen[0,:],den_koeppen_future[0,:],double_koeppen[0,:]):
-    ax5.plot([x1, x2], [y1, y2], c=col_random, alpha=a, linewidth=2)
-for n, (label,x,y) in enumerate(zip(koeppen_names, den_koeppen_future[0,:], double_koeppen[0,:])):
+#for x1,y1,x2,y2 in zip(den_koeppen_current,orig_koeppen[0,:],den_koeppen_future[0,:],double_koeppen[0,:]):
+#    ax5.plot([x1, x2], [y1, y2], c=col_random, alpha=a, linewidth=2)
+#for n, (label,x,y) in enumerate(zip(koeppen_names, den_koeppen_future[0,:], double_koeppen[0,:])):
+for n, (label,x,y) in enumerate(zip(koeppen_names, den_koeppen_current, orig_koeppen[0,:])):
     ax5.text(x=x+0.10,y=y+y_offset[n],s=label)
 ax5.scatter(den_koeppen_current,orig_koeppen[0,:], c=col_random, edgecolor='black', alpha=a, s=s)
-ax5.scatter(den_koeppen_future[0,:],double_koeppen[0,:], c=col_random, s=s)
+#ax5.scatter(den_koeppen_future[0,:],double_koeppen[0,:], c=col_random, s=s)
 
 #'Af','Am','Aw','BS','Cs','Cw','Cf','Ds','Dw','Df'
 y_offset = [0,0,0,0,-0.15,0,0,0,0,0]
-for x1,y1,x2,y2 in zip(den_koeppen_current,orig_koeppen[1,:],den_koeppen_future[1,:],double_koeppen[1,:]):
-    ax6.plot([x1, x2], [y1, y2], c=col_random, alpha=a, linewidth=2)
-for n, (label,x,y) in enumerate(zip(koeppen_names, den_koeppen_future[1,:], double_koeppen[1,:])):
+#for x1,y1,x2,y2 in zip(den_koeppen_current,orig_koeppen[1,:],den_koeppen_future[1,:],double_koeppen[1,:]):
+#    ax6.plot([x1, x2], [y1, y2], c=col_random, alpha=a, linewidth=2)
+#for n, (label,x,y) in enumerate(zip(koeppen_names, den_koeppen_future[1,:], double_koeppen[1,:])):
+for n, (label,x,y) in enumerate(zip(koeppen_names, den_koeppen_current, orig_koeppen[1,:])):
     ax6.text(x=x+0.10,y=y+y_offset[n],s=label)
 ax6.scatter(den_koeppen_current,orig_koeppen[1,:], c=col_random, edgecolor='black', alpha=a, s=s)
-ax6.scatter(den_koeppen_future[1,:],double_koeppen[1,:], c=col_random, s=s)
+#ax6.scatter(den_koeppen_future[1,:],double_koeppen[1,:], c=col_random, s=s)
 
 #for x1,y1,x2,y2 in zip(den_ar6_current,orig_ar6[0,:],den_ar6_future[0,:],double_ar6[0,:]):
 #    ax7.plot([x1, x2], [y1, y2], c=col_random, alpha=a)
@@ -299,4 +300,4 @@ ax6.set_title('(f) Long-term trend: \nchange per Koppen-Geiger climate', fontsiz
 ax5.legend(handles=legend_elements, loc='lower right')
 plt.subplots_adjust(hspace=0.75)
 plt.rcParams.update({'font.size': fs})
-plt.savefig('doubling.pdf')
+plt.savefig('test.pdf')
