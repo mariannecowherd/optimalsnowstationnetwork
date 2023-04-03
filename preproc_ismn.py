@@ -174,11 +174,11 @@ for station in koeppen_no:
     simplified_koeppen_class.append(kdict[station])
 
 # add country to station
-networks = pd.read_csv('ISMN_station_countries.txt', delim_whitespace=True)
-networks = networks.set_index('Name')
-countries = []
-for net in list_network:
-    countries.append(networks.loc[net].Country)
+#networks = pd.read_csv('ISMN_station_countries.txt', delim_whitespace=True)
+#networks = networks.set_index('Name')
+#countries = []
+#for net in list_network:
+#    countries.append(networks.loc[net].Country)
 
 # to xarray
 df_gaps = xr.DataArray(df_gaps, dims=['time','stations'])
@@ -192,13 +192,12 @@ df_gaps = df_gaps.assign_coords(koeppen=('stations',list_koeppen_class))
 df_gaps = df_gaps.assign_coords(koeppen_simple=('stations',simplified_koeppen_class))
 df_gaps = df_gaps.assign_coords(stationname=('stations',list_stationname))
 df_gaps = df_gaps.assign_coords(network=('stations',list_network))
-df_gaps = df_gaps.assign_coords(country=('stations',countries))
+#df_gaps = df_gaps.assign_coords(country=('stations',countries))
 df_gaps = df_gaps.assign_coords(depth_start=('stations',list_depth_start))
 df_gaps = df_gaps.assign_coords(depth_end=('stations',list_depth_end))
 
 # remove ocean stations
 df_gaps = df_gaps.where(df_gaps.koeppen != 0, drop=True)
-import IPython; IPython.embed()
 
 ## save as netcdf
 df_gaps = df_gaps.rename('mrso')
